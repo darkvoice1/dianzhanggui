@@ -1,7 +1,6 @@
 package com.darkvoice1.dianzhanggui.controller;
 
 import com.darkvoice1.dianzhanggui.common.ErrorCode;
-import com.darkvoice1.dianzhanggui.entity.PersistenceDemoRecord;
 import com.darkvoice1.dianzhanggui.exception.BusinessException;
 import com.darkvoice1.dianzhanggui.service.PersistenceDemoRecordService;
 import org.junit.jupiter.api.Test;
@@ -57,7 +56,6 @@ class PersistenceDemoRecordControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
                 .andExpect(jsonPath("$.message").value("系统繁忙，请稍后重试"))
-                .andExpect(jsonPath("$.data").doesNotExist())
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.not("内部数据库连接细节")));
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 }
