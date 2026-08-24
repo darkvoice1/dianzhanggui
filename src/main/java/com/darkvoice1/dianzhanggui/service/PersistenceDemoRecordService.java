@@ -1,6 +1,8 @@
 package com.darkvoice1.dianzhanggui.service;
 
 import com.darkvoice1.dianzhanggui.entity.PersistenceDemoRecord;
+import com.darkvoice1.dianzhanggui.common.ErrorCode;
+import com.darkvoice1.dianzhanggui.exception.BusinessException;
 import com.darkvoice1.dianzhanggui.mapper.PersistenceDemoRecordMapper;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +27,10 @@ public class PersistenceDemoRecordService {
 
     /** 根据主键查询示例记录。 */
     public PersistenceDemoRecord findById(Long id) {
-        return recordMapper.selectById(id);
+        PersistenceDemoRecord record = recordMapper.selectById(id);
+        if (record == null) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        return record;
     }
 }
