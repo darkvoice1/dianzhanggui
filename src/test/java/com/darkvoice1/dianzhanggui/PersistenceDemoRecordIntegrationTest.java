@@ -58,4 +58,13 @@ class PersistenceDemoRecordIntegrationTest {
                 .andExpect(jsonPath("$.data.id").value(record.getId()))
                 .andExpect(jsonPath("$.data.name").value("持久层测试记录"));
     }
+
+    /** 验证应用提供包含项目基本信息的 OpenAPI 文档。 */
+    @Test
+    void shouldExposeOpenApiDocument() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.info.title").value("店掌柜 API"))
+                .andExpect(jsonPath("$.paths['/api/health']").exists());
+    }
 }
