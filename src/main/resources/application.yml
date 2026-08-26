@@ -16,3 +16,10 @@ mybatis-plus:
 
 server:
   port: 8080
+
+auth:
+  jwt:
+    issuer: dianzhanggui
+    secret: ${JWT_SECRET:dianzhanggui-development-jwt-secret-key-2026}
+    access-token-expiration: PT15M
+    refresh-token-expiration: P7D

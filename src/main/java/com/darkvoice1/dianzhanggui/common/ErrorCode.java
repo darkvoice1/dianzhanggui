@@ -18,6 +18,15 @@ public enum ErrorCode {
     /** 业务规则不允许当前操作。 */
     BUSINESS_ERROR("BUSINESS_ERROR", "业务处理失败"),
 
+    /** 用户登录凭证不正确。 */
+    LOGIN_FAILED("LOGIN_FAILED", "邮箱或密码不正确"),
+
+    /** 邮箱已被其他用户注册。 */
+    USER_ALREADY_EXISTS("USER_ALREADY_EXISTS", "该邮箱已注册"),
+
+    /** 请求缺少有效登录凭证。 */
+    UNAUTHORIZED("UNAUTHORIZED", "请先登录"),
+
     /** 未预期的系统异常。 */
     INTERNAL_ERROR("INTERNAL_ERROR", "系统繁忙，请稍后重试");
 
