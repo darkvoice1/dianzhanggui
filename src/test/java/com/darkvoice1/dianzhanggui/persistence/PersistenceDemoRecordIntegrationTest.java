@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -50,16 +51,59 @@ class PersistenceDemoRecordIntegrationTest {
     /** 验证数据库插入、查询和 HTTP 查询接口。 */
     @Test
     void shouldInsertAndQueryRecord() throws Exception {
+        String accessToken = registerAndGetAccessToken();
+        Long merchantId = createMerchantAndGetId(accessToken);
         PersistenceDemoRecord record = new PersistenceDemoRecord();
         record.setName("持久层测试记录");
+        record.setMerchantId(merchantId);
         recordMapper.insert(record);
 
         mockMvc.perform(get("/api/demo-records/{id}", record.getId())
-                        .header("Authorization", "Bearer " + registerAndGetAccessToken()))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Merchant-Id", merchantId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.id").value(record.getId()))
                 .andExpect(jsonPath("$.data.name").value("持久层测试记录"));
+    }
+
+    /** 验证租户业务请求未选择商家时会被拒绝。 */
+    @Test
+    void shouldRequireMerchantHeaderForDemoRecord() throws Exception {
+        mockMvc.perform(get("/api/demo-records/1")
+                        .header("Authorization", "Bearer " + registerAndGetAccessToken()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TENANT_REQUIRED"));
+    }
+
+    /** 验证用户不能伪造其他商家的请求头访问租户业务。 */
+    @Test
+    void shouldRejectAnotherMerchantsHeader() throws Exception {
+        Long merchantId = createMerchantAndGetId(registerAndGetAccessToken());
+        String otherUserToken = registerAndGetAccessToken();
+
+        mockMvc.perform(get("/api/demo-records/1")
+                        .header("Authorization", "Bearer " + otherUserToken)
+                        .header("X-Merchant-Id", merchantId))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("MERCHANT_ACCESS_DENIED"));
+    }
+
+    /** 创建测试商家并读取接口返回的商家主键。 */
+    private Long createMerchantAndGetId(String accessToken) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/merchants")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"merchantName":"租户测试商家","firstStoreName":"测试门店"}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        return new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(result.getResponse().getContentAsString())
+                .path("data")
+                .path("merchantId")
+                .asLong();
     }
 
     /** 注册测试用户并取得访问受保护接口的 JWT。 */

@@ -17,6 +17,9 @@ public class PersistenceDemoRecord {
     /** 记录名称。 */
     private String name;
 
+    /** 所属商家主键。 */
+    private Long merchantId;
+
     /** 记录创建时间。 */
     private LocalDateTime createdAt;
 
@@ -34,6 +37,14 @@ public class PersistenceDemoRecord {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Long getMerchantId() {
+        return merchantId;
+    }
+
+    public void setMerchantId(Long merchantId) {
+        this.merchantId = merchantId;
     }
 
     public LocalDateTime getCreatedAt() {

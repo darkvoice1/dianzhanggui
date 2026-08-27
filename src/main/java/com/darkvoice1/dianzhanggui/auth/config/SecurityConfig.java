@@ -21,7 +21,10 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+
+import com.darkvoice1.dianzhanggui.common.tenant.TenantContextFilter;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -58,7 +61,8 @@ public class SecurityConfig {
 
     /** 配置匿名接口和需要登录的业务接口。 */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper,
+            TenantContextFilter tenantContextFilter) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -71,6 +75,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, exception) -> writeUnauthorizedResponse(response, objectMapper)))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> writeUnauthorizedResponse(response, objectMapper)))
+                .addFilterAfter(tenantContextFilter, BearerTokenAuthenticationFilter.class)
                 .build();
     }
 

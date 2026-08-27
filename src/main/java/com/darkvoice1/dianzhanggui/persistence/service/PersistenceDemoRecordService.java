@@ -1,6 +1,8 @@
 package com.darkvoice1.dianzhanggui.persistence.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.darkvoice1.dianzhanggui.common.ErrorCode;
+import com.darkvoice1.dianzhanggui.common.tenant.TenantContext;
 import com.darkvoice1.dianzhanggui.infrastructure.exception.BusinessException;
 import com.darkvoice1.dianzhanggui.persistence.mapper.PersistenceDemoRecordMapper;
 import com.darkvoice1.dianzhanggui.persistence.model.PersistenceDemoRecord;
@@ -21,13 +23,17 @@ public class PersistenceDemoRecordService {
     public PersistenceDemoRecord create(String name) {
         PersistenceDemoRecord record = new PersistenceDemoRecord();
         record.setName(name);
+        record.setMerchantId(TenantContext.requireMerchantId());
         recordMapper.insert(record);
         return record;
     }
 
     /** 根据主键查询示例记录。 */
     public PersistenceDemoRecord findById(Long id) {
-        PersistenceDemoRecord record = recordMapper.selectById(id);
+        Long merchantId = TenantContext.requireMerchantId();
+        PersistenceDemoRecord record = recordMapper.selectOne(new LambdaQueryWrapper<PersistenceDemoRecord>()
+                .eq(PersistenceDemoRecord::getId, id)
+                .eq(PersistenceDemoRecord::getMerchantId, merchantId));
         if (record == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }

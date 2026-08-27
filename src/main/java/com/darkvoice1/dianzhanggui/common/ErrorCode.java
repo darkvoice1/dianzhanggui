@@ -30,6 +30,9 @@ public enum ErrorCode {
     /** 用户无权使用指定商家。 */
     MERCHANT_ACCESS_DENIED("MERCHANT_ACCESS_DENIED", "您尚未加入该商家"),
 
+    /** 租户业务请求缺少当前商家。 */
+    TENANT_REQUIRED("TENANT_REQUIRED", "请先选择当前商家"),
+
     /** 请求缺少有效登录凭证。 */
     UNAUTHORIZED("UNAUTHORIZED", "请先登录"),
 
