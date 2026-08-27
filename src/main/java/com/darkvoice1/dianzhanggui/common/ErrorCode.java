@@ -24,6 +24,12 @@ public enum ErrorCode {
     /** 邮箱已被其他用户注册。 */
     USER_ALREADY_EXISTS("USER_ALREADY_EXISTS", "该邮箱已注册"),
 
+    /** 用户已是该商家的成员。 */
+    MERCHANT_MEMBER_ALREADY_EXISTS("MERCHANT_MEMBER_ALREADY_EXISTS", "您已加入该商家"),
+
+    /** 用户无权使用指定商家。 */
+    MERCHANT_ACCESS_DENIED("MERCHANT_ACCESS_DENIED", "您尚未加入该商家"),
+
     /** 请求缺少有效登录凭证。 */
     UNAUTHORIZED("UNAUTHORIZED", "请先登录"),
 

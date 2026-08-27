@@ -3,16 +3,21 @@ package com.darkvoice1.dianzhanggui.tenant.controller;
 import com.darkvoice1.dianzhanggui.common.ApiResponse;
 import com.darkvoice1.dianzhanggui.tenant.model.CreateMerchantRequest;
 import com.darkvoice1.dianzhanggui.tenant.model.MerchantCreationResponse;
+import com.darkvoice1.dianzhanggui.tenant.model.MerchantSummaryResponse;
 import com.darkvoice1.dianzhanggui.tenant.service.MerchantService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 提供商家创建相关接口。 */
+import java.util.List;
+
+/** 提供商家创建、加入和切换相关接口。 */
 @RestController
 @RequestMapping("/api/merchants")
 public class MerchantController {
@@ -30,5 +35,25 @@ public class MerchantController {
             @Valid @RequestBody CreateMerchantRequest request) {
         Long userId = Long.valueOf(jwt.getSubject());
         return ApiResponse.success(merchantService.createMerchant(userId, request));
+    }
+
+    /** 将当前登录用户加入指定商家。 */
+    @PostMapping("/{merchantId}/members")
+    public ApiResponse<Void> joinMerchant(@AuthenticationPrincipal Jwt jwt, @PathVariable Long merchantId) {
+        merchantService.joinMerchant(Long.valueOf(jwt.getSubject()), merchantId);
+        return ApiResponse.success(null);
+    }
+
+    /** 查询当前登录用户所属的全部商家。 */
+    @GetMapping("/mine")
+    public ApiResponse<List<MerchantSummaryResponse>> getMyMerchants(@AuthenticationPrincipal Jwt jwt) {
+        return ApiResponse.success(merchantService.getMyMerchants(Long.valueOf(jwt.getSubject())));
+    }
+
+    /** 校验当前登录用户是否可以切换到指定商家。 */
+    @PostMapping("/{merchantId}/switch")
+    public ApiResponse<MerchantSummaryResponse> switchMerchant(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long merchantId) {
+        return ApiResponse.success(merchantService.switchMerchant(Long.valueOf(jwt.getSubject()), merchantId));
     }
 }

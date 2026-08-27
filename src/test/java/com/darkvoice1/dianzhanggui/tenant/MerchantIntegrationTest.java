@@ -29,6 +29,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -106,6 +107,46 @@ class MerchantIntegrationTest {
         assertEquals("朝阳区", store.getAddress());
         assertNotNull(member);
         assertEquals("OWNER", member.getRole());
+    }
+
+    /** 验证用户可加入商家、查询所属商家，并选择已加入的商家。 */
+    @Test
+    void shouldJoinListAndSwitchMerchant() throws Exception {
+        String ownerToken = registerAndGetAccessToken("owner-" + UUID.randomUUID() + "@example.com");
+        String memberToken = registerAndGetAccessToken("member-" + UUID.randomUUID() + "@example.com");
+        Long merchantId = createMerchantAndGetId(ownerToken);
+
+        mockMvc.perform(post("/api/merchants/{merchantId}/members", merchantId)
+                        .header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"));
+
+        mockMvc.perform(get("/api/merchants/mine")
+                        .header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data[0].merchantId").value(merchantId))
+                .andExpect(jsonPath("$.data[0].role").value("MEMBER"));
+
+        mockMvc.perform(post("/api/merchants/{merchantId}/switch", merchantId)
+                        .header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.merchantId").value(merchantId))
+                .andExpect(jsonPath("$.data.role").value("MEMBER"));
+    }
+
+    /** 创建测试商家并读取接口返回的商家主键。 */
+    private Long createMerchantAndGetId(String accessToken) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/merchants")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"merchantName":"星河健身","firstStoreName":"西城店"}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
+        return response.path("data").path("merchantId").asLong();
     }
 
     /** 注册测试用户并取得访问令牌。 */
