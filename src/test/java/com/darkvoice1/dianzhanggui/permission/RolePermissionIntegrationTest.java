@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** 验证角色、权限及默认关联关系已正确初始化。 */
+/** 验证固定角色、权限及角色权限关系的数据模型。 */
 @SpringBootTest
 @Testcontainers
 class RolePermissionIntegrationTest {
@@ -52,17 +52,17 @@ class RolePermissionIntegrationTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    /** 验证通用角色、权限和角色权限关系可以持久化。 */
+    /** 验证系统初始化固定角色，并支持持久化权限关联。 */
     @Test
-    void shouldPersistGenericRolePermissionDefinitions() {
-        assertTrue(roleMapper.selectList(null).isEmpty());
+    void shouldInitializeFixedRolesAndPersistPermissionRelations() {
+        assertEquals(3, roleMapper.selectList(null).size());
         assertTrue(permissionMapper.selectList(null).isEmpty());
+        assertTrue(rolePermissionMapper.selectList(null).isEmpty());
 
-        Role owner = new Role();
-        owner.setCode("OWNER");
-        owner.setName("商家负责人");
-        owner.setDescription("负责商家基础管理");
-        roleMapper.insert(owner);
+        Role owner = findRole("OWNER");
+        assertEquals("老板", owner.getName());
+        assertEquals("员工", findRole("EMPLOYEE").getName());
+        assertEquals("顾客", findRole("MEMBER").getName());
 
         Permission merchantManage = new Permission();
         merchantManage.setCode("MERCHANT_MANAGE");
