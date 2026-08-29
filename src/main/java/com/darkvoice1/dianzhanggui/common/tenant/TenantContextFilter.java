@@ -10,6 +10,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -23,6 +25,8 @@ import java.io.IOException;
 /** 校验当前商家请求头，并把已验证的商家标识写入请求上下文。 */
 @Component
 public class TenantContextFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(TenantContextFilter.class);
 
     private final MerchantMemberMapper merchantMemberMapper;
     private final ObjectMapper objectMapper;
@@ -56,6 +60,8 @@ public class TenantContextFilter extends OncePerRequestFilter {
                     .eq(MerchantMember::getUserId, userId)
                     .eq(MerchantMember::getMerchantId, merchantId));
             if (member == null) {
+                log.warn("event=tenant_access_denied user_id={} merchant_id={} operation={} path={}",
+                        userId, merchantId, request.getMethod(), request.getRequestURI());
                 writeFailure(response, HttpStatus.FORBIDDEN, ErrorCode.MERCHANT_ACCESS_DENIED);
                 return;
             }

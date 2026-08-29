@@ -102,17 +102,76 @@ class PersistenceDemoRecordIntegrationTest {
                 .andExpect(jsonPath("$.code").value("TENANT_REQUIRED"));
     }
 
-    /** 验证用户不能伪造其他商家的请求头访问租户业务。 */
+    /** 验证用户不能伪造其他商家请求头查询、修改或删除记录。 */
     @Test
-    void shouldRejectAnotherMerchantsHeader() throws Exception {
-        Long merchantId = createMerchantAndGetId(registerAndGetAccessToken());
+    void shouldRejectAnotherMerchantsHeaderForAllRecordOperations() throws Exception {
+        String ownerToken = registerAndGetAccessToken();
+        Long merchantId = createMerchantAndGetId(ownerToken);
+        Long recordId = createRecordAndGetId(ownerToken, merchantId, "商家原始记录");
         String otherUserToken = registerAndGetAccessToken();
 
-        mockMvc.perform(get("/api/demo-records/1")
+        mockMvc.perform(get("/api/demo-records/{id}", recordId)
+                        .header("Authorization", "Bearer " + otherUserToken)
+                        .header("X-Merchant-Id", merchantId))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("MERCHANT_ACCESS_DENIED"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        mockMvc.perform(patch("/api/demo-records/{id}", recordId)
+                        .header("Authorization", "Bearer " + otherUserToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"越权修改\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("MERCHANT_ACCESS_DENIED"));
+
+        mockMvc.perform(delete("/api/demo-records/{id}", recordId)
                         .header("Authorization", "Bearer " + otherUserToken)
                         .header("X-Merchant-Id", merchantId))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("MERCHANT_ACCESS_DENIED"));
+
+        mockMvc.perform(get("/api/demo-records/{id}", recordId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("商家原始记录"));
+    }
+
+    /** 验证用户切换到另一家所属商家后不能操作原商家的记录。 */
+    @Test
+    void shouldNotAccessAnotherMerchantsRecordWhenUserBelongsToBothMerchants() throws Exception {
+        String accessToken = registerAndGetAccessToken();
+        Long firstMerchantId = createMerchantAndGetId(accessToken);
+        Long secondMerchantId = createMerchantAndGetId(accessToken);
+        Long recordId = createRecordAndGetId(accessToken, firstMerchantId, "第一家商家记录");
+
+        mockMvc.perform(get("/api/demo-records/{id}", recordId)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Merchant-Id", secondMerchantId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        mockMvc.perform(patch("/api/demo-records/{id}", recordId)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Merchant-Id", secondMerchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"跨商家修改\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+
+        mockMvc.perform(delete("/api/demo-records/{id}", recordId)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Merchant-Id", secondMerchantId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+
+        mockMvc.perform(get("/api/demo-records/{id}", recordId)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Merchant-Id", firstMerchantId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("第一家商家记录"));
     }
 
     /** 创建测试商家并读取接口返回的商家主键。 */
