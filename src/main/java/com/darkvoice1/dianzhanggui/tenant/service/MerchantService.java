@@ -3,7 +3,10 @@ package com.darkvoice1.dianzhanggui.tenant.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.darkvoice1.dianzhanggui.auth.mapper.UserAccountMapper;
 import com.darkvoice1.dianzhanggui.common.ErrorCode;
+import com.darkvoice1.dianzhanggui.common.tenant.TenantContext;
 import com.darkvoice1.dianzhanggui.infrastructure.exception.BusinessException;
+import com.darkvoice1.dianzhanggui.permission.service.PermissionResolver;
+import com.darkvoice1.dianzhanggui.tenant.model.ChangeMerchantMemberRoleRequest;
 import com.darkvoice1.dianzhanggui.tenant.mapper.MerchantMapper;
 import com.darkvoice1.dianzhanggui.tenant.mapper.MerchantMemberMapper;
 import com.darkvoice1.dianzhanggui.tenant.mapper.StoreMapper;
@@ -18,25 +21,29 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/** 提供商家和首个门店的创建能力。 */
+/** 提供商家创建、成员加入和成员角色管理能力。 */
 @Service
 public class MerchantService {
 
     private static final String OWNER_ROLE = "OWNER";
     private static final String MEMBER_ROLE = "MEMBER";
+    private static final String MERCHANT_MEMBER_MANAGE_PERMISSION = "MERCHANT_MEMBER_MANAGE";
 
     private final UserAccountMapper userAccountMapper;
     private final MerchantMapper merchantMapper;
     private final StoreMapper storeMapper;
     private final MerchantMemberMapper merchantMemberMapper;
+    private final PermissionResolver permissionResolver;
 
     /** 创建商家服务并注入所需的数据访问组件。 */
     public MerchantService(UserAccountMapper userAccountMapper, MerchantMapper merchantMapper,
-                           StoreMapper storeMapper, MerchantMemberMapper merchantMemberMapper) {
+                           StoreMapper storeMapper, MerchantMemberMapper merchantMemberMapper,
+                           PermissionResolver permissionResolver) {
         this.userAccountMapper = userAccountMapper;
         this.merchantMapper = merchantMapper;
         this.storeMapper = storeMapper;
         this.merchantMemberMapper = merchantMemberMapper;
+        this.permissionResolver = permissionResolver;
     }
 
     /** 为当前登录用户创建商家、首个门店及创建者成员关系。 */
@@ -65,7 +72,7 @@ public class MerchantService {
         return new MerchantCreationResponse(merchant.getId(), merchant.getName(), store.getId(), store.getName());
     }
 
-    /** 为当前用户创建指定商家的普通成员关系。 */
+    /** 将当前用户以顾客身份加入指定商家。 */
     public void joinMerchant(Long userId, Long merchantId) {
         verifyUserExists(userId);
         findMerchant(merchantId);
@@ -78,6 +85,22 @@ public class MerchantService {
         member.setUserId(userId);
         member.setRole(MEMBER_ROLE);
         merchantMemberMapper.insert(member);
+    }
+
+    /** 变更当前商家已有成员的角色，并校验成员管理权限。 */
+    public void changeMemberRole(Long operatorUserId, Long merchantId, Long memberUserId,
+            ChangeMerchantMemberRoleRequest request) {
+        verifyCurrentMerchant(merchantId);
+        permissionResolver.requirePermission(operatorUserId, MERCHANT_MEMBER_MANAGE_PERMISSION);
+        MerchantMember member = findMember(memberUserId, merchantId);
+        if (member == null) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (OWNER_ROLE.equals(member.getRole())) {
+            throw new BusinessException(ErrorCode.OWNER_ROLE_CHANGE_NOT_ALLOWED);
+        }
+        member.setRole(request.role());
+        merchantMemberMapper.updateById(member);
     }
 
     /** 查询当前用户所属商家及其在商家中的角色。 */
@@ -105,6 +128,13 @@ public class MerchantService {
         return merchantMemberMapper.selectOne(new LambdaQueryWrapper<MerchantMember>()
                 .eq(MerchantMember::getUserId, userId)
                 .eq(MerchantMember::getMerchantId, merchantId));
+    }
+
+    /** 确保路径中的商家与当前请求已选择的商家一致。 */
+    private void verifyCurrentMerchant(Long merchantId) {
+        if (!TenantContext.requireMerchantId().equals(merchantId)) {
+            throw new BusinessException(ErrorCode.MERCHANT_ACCESS_DENIED);
+        }
     }
 
     /** 查询商家，不存在时返回统一的资源不存在错误。 */

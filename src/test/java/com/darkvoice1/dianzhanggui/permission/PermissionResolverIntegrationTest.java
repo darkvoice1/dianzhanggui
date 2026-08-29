@@ -89,7 +89,7 @@ class PermissionResolverIntegrationTest {
 
         Set<String> permissions = permissionResolver.resolvePermissions(user.getId(), merchant.getId());
 
-        assertEquals(Set.of("MERCHANT_MANAGE", "ORDER_VIEW"), permissions);
+        assertEquals(Set.of("MERCHANT_MEMBER_MANAGE", "MERCHANT_MANAGE", "ORDER_VIEW"), permissions);
     }
 
     /** 验证用户不属于指定商家时不能解析该商家的权限。 */

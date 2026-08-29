@@ -60,7 +60,7 @@ public class GlobalExceptionHandler {
             case RESOURCE_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case LOGIN_FAILED, UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
             case USER_ALREADY_EXISTS, MERCHANT_MEMBER_ALREADY_EXISTS -> HttpStatus.CONFLICT;
-            case MERCHANT_ACCESS_DENIED -> HttpStatus.FORBIDDEN;
+            case MERCHANT_ACCESS_DENIED, PERMISSION_DENIED -> HttpStatus.FORBIDDEN;
             default -> HttpStatus.BAD_REQUEST;
         };
         log.warn("event=business_exception code={} message={}", errorCode.code(), exception.getMessage());

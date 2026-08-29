@@ -1,6 +1,7 @@
 package com.darkvoice1.dianzhanggui.tenant.controller;
 
 import com.darkvoice1.dianzhanggui.common.ApiResponse;
+import com.darkvoice1.dianzhanggui.tenant.model.ChangeMerchantMemberRoleRequest;
 import com.darkvoice1.dianzhanggui.tenant.model.CreateMerchantRequest;
 import com.darkvoice1.dianzhanggui.tenant.model.MerchantCreationResponse;
 import com.darkvoice1.dianzhanggui.tenant.model.MerchantSummaryResponse;
@@ -10,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,10 +39,18 @@ public class MerchantController {
         return ApiResponse.success(merchantService.createMerchant(userId, request));
     }
 
-    /** 将当前登录用户加入指定商家。 */
+    /** 将当前登录用户以顾客身份加入指定商家。 */
     @PostMapping("/{merchantId}/members")
     public ApiResponse<Void> joinMerchant(@AuthenticationPrincipal Jwt jwt, @PathVariable Long merchantId) {
         merchantService.joinMerchant(Long.valueOf(jwt.getSubject()), merchantId);
+        return ApiResponse.success(null);
+    }
+
+    /** 由老板变更当前商家已有成员的角色。 */
+    @PatchMapping("/{merchantId}/members/{memberUserId}/role")
+    public ApiResponse<Void> changeMemberRole(@AuthenticationPrincipal Jwt jwt, @PathVariable Long merchantId,
+            @PathVariable Long memberUserId, @Valid @RequestBody ChangeMerchantMemberRoleRequest request) {
+        merchantService.changeMemberRole(Long.valueOf(jwt.getSubject()), merchantId, memberUserId, request);
         return ApiResponse.success(null);
     }
 

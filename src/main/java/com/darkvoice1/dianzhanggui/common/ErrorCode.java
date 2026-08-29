@@ -30,6 +30,12 @@ public enum ErrorCode {
     /** 用户无权使用指定商家。 */
     MERCHANT_ACCESS_DENIED("MERCHANT_ACCESS_DENIED", "您尚未加入该商家"),
 
+    /** 用户没有执行当前操作所需的权限。 */
+    PERMISSION_DENIED("PERMISSION_DENIED", "您没有执行当前操作的权限"),
+
+    /** 商家老板角色不允许通过成员管理接口变更。 */
+    OWNER_ROLE_CHANGE_NOT_ALLOWED("OWNER_ROLE_CHANGE_NOT_ALLOWED", "商家老板角色不能变更"),
+
     /** 租户业务请求缺少当前商家。 */
     TENANT_REQUIRED("TENANT_REQUIRED", "请先选择当前商家"),
 

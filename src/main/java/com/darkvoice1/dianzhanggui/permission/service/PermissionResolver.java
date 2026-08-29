@@ -83,4 +83,11 @@ public class PermissionResolver {
     public boolean hasPermission(Long userId, String permissionCode) {
         return permissionCode != null && resolveCurrentPermissions(userId).contains(permissionCode);
     }
+
+    /** 要求用户在当前租户中拥有指定权限，缺失时拒绝操作。 */
+    public void requirePermission(Long userId, String permissionCode) {
+        if (!hasPermission(userId, permissionCode)) {
+            throw new BusinessException(ErrorCode.PERMISSION_DENIED);
+        }
+    }
 }

@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -109,12 +110,16 @@ class MerchantIntegrationTest {
         assertEquals("OWNER", member.getRole());
     }
 
-    /** 验证用户可加入商家、查询所属商家，并选择已加入的商家。 */
+    /** 验证顾客可自行加入商家、查询所属商家并选择当前商家。 */
     @Test
     void shouldJoinListAndSwitchMerchant() throws Exception {
         String ownerToken = registerAndGetAccessToken("owner-" + UUID.randomUUID() + "@example.com");
-        String memberToken = registerAndGetAccessToken("member-" + UUID.randomUUID() + "@example.com");
+        String memberEmail = "member-" + UUID.randomUUID() + "@example.com";
+        String memberToken = registerAndGetAccessToken(memberEmail);
         Long merchantId = createMerchantAndGetId(ownerToken);
+        UserAccount memberUser = userAccountMapper.selectOne(new LambdaQueryWrapper<UserAccount>()
+                .eq(UserAccount::getEmail, memberEmail));
+        assertNotNull(memberUser);
 
         mockMvc.perform(post("/api/merchants/{merchantId}/members", merchantId)
                         .header("Authorization", "Bearer " + memberToken))
@@ -133,6 +138,101 @@ class MerchantIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.merchantId").value(merchantId))
                 .andExpect(jsonPath("$.data.role").value("MEMBER"));
+    }
+
+    /** 验证老板可以将已加入商家的顾客变更为员工或变回顾客。 */
+    @Test
+    void shouldChangeExistingMemberRoleWithMemberManagementPermission() throws Exception {
+        String ownerToken = registerAndGetAccessToken("owner-" + UUID.randomUUID() + "@example.com");
+        String employeeEmail = "employee-" + UUID.randomUUID() + "@example.com";
+        String employeeToken = registerAndGetAccessToken(employeeEmail);
+        Long merchantId = createMerchantAndGetId(ownerToken);
+        Long employeeUserId = findUserId(employeeEmail);
+
+        mockMvc.perform(post("/api/merchants/{merchantId}/members", merchantId)
+                        .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/merchants/{merchantId}/members/{memberUserId}/role", merchantId, employeeUserId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"EMPLOYEE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"));
+
+        MerchantMember employee = merchantMemberMapper.selectOne(new LambdaQueryWrapper<MerchantMember>()
+                .eq(MerchantMember::getMerchantId, merchantId)
+                .eq(MerchantMember::getUserId, employeeUserId));
+        assertNotNull(employee);
+        assertEquals("EMPLOYEE", employee.getRole());
+
+        mockMvc.perform(patch("/api/merchants/{merchantId}/members/{memberUserId}/role", merchantId, employeeUserId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"MEMBER\"}"))
+                .andExpect(status().isOk());
+
+        assertEquals("MEMBER", merchantMemberMapper.selectById(employee.getId()).getRole());
+    }
+
+    /** 验证没有成员管理权限的顾客不能变更其他成员角色。 */
+    @Test
+    void shouldRejectMemberWithoutMemberManagementPermission() throws Exception {
+        String ownerToken = registerAndGetAccessToken("owner-" + UUID.randomUUID() + "@example.com");
+        String memberEmail = "member-" + UUID.randomUUID() + "@example.com";
+        String memberToken = registerAndGetAccessToken(memberEmail);
+        Long merchantId = createMerchantAndGetId(ownerToken);
+        Long memberUserId = findUserId(memberEmail);
+
+        mockMvc.perform(post("/api/merchants/{merchantId}/members", merchantId)
+                        .header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/merchants/{merchantId}/members/{memberUserId}/role", merchantId, memberUserId)
+                        .header("Authorization", "Bearer " + memberToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"EMPLOYEE\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PERMISSION_DENIED"));
+    }
+
+    /** 验证未加入商家的用户不能被直接变更为员工。 */
+    @Test
+    void shouldRejectRoleChangeForUserWhoHasNotJoinedMerchant() throws Exception {
+        String ownerEmail = "owner-" + UUID.randomUUID() + "@example.com";
+        String ownerToken = registerAndGetAccessToken(ownerEmail);
+        String userEmail = "user-" + UUID.randomUUID() + "@example.com";
+        registerAndGetAccessToken(userEmail);
+        Long merchantId = createMerchantAndGetId(ownerToken);
+
+        mockMvc.perform(patch("/api/merchants/{merchantId}/members/{memberUserId}/role", merchantId,
+                        findUserId(userEmail))
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"EMPLOYEE\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+    }
+
+    /** 验证成员管理接口不能变更商家老板角色。 */
+    @Test
+    void shouldRejectChangingOwnerRole() throws Exception {
+        String ownerEmail = "owner-" + UUID.randomUUID() + "@example.com";
+        String ownerToken = registerAndGetAccessToken(ownerEmail);
+        Long merchantId = createMerchantAndGetId(ownerToken);
+
+        mockMvc.perform(patch("/api/merchants/{merchantId}/members/{memberUserId}/role", merchantId,
+                        findUserId(ownerEmail))
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"MEMBER\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("OWNER_ROLE_CHANGE_NOT_ALLOWED"));
     }
 
     /** 创建测试商家并读取接口返回的商家主键。 */
@@ -158,5 +258,13 @@ class MerchantIntegrationTest {
                 .andReturn();
         JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
         return response.path("data").path("accessToken").asText();
+    }
+
+    /** 按邮箱查询测试用户主键。 */
+    private Long findUserId(String email) {
+        UserAccount user = userAccountMapper.selectOne(new LambdaQueryWrapper<UserAccount>()
+                .eq(UserAccount::getEmail, email));
+        assertNotNull(user);
+        return user.getId();
     }
 }
