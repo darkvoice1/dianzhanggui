@@ -4,6 +4,7 @@ import com.darkvoice1.dianzhanggui.common.ErrorCode;
 import com.darkvoice1.dianzhanggui.infrastructure.exception.BusinessException;
 import com.darkvoice1.dianzhanggui.persistence.controller.PersistenceDemoRecordController;
 import com.darkvoice1.dianzhanggui.persistence.service.PersistenceDemoRecordService;
+import com.darkvoice1.dianzhanggui.tenant.mapper.MerchantMemberMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -26,6 +27,9 @@ class PersistenceDemoRecordControllerTest {
 
     @MockitoBean
     private PersistenceDemoRecordService recordService;
+
+    @MockitoBean
+    private MerchantMemberMapper merchantMemberMapper;
 
     /** 验证主键不是正整数时返回字段和校验原因。 */
     @Test

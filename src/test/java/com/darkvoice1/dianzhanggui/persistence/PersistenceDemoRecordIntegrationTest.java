@@ -1,7 +1,5 @@
 package com.darkvoice1.dianzhanggui.persistence;
 
-import com.darkvoice1.dianzhanggui.persistence.mapper.PersistenceDemoRecordMapper;
-import com.darkvoice1.dianzhanggui.persistence.model.PersistenceDemoRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -37,9 +35,6 @@ class PersistenceDemoRecordIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private PersistenceDemoRecordMapper recordMapper;
-
     /** 将临时 PostgreSQL 容器连接信息注入 Spring 配置。 */
     @DynamicPropertySource
     static void registerDatabaseProperties(DynamicPropertyRegistry registry) {
@@ -48,22 +43,20 @@ class PersistenceDemoRecordIntegrationTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    /** 验证数据库插入、查询和 HTTP 查询接口。 */
+    /** 验证示例记录创建和查询都会使用当前商家。 */
     @Test
-    void shouldInsertAndQueryRecord() throws Exception {
+    void shouldCreateAndQueryRecordInCurrentMerchant() throws Exception {
         String accessToken = registerAndGetAccessToken();
         Long merchantId = createMerchantAndGetId(accessToken);
-        PersistenceDemoRecord record = new PersistenceDemoRecord();
-        record.setName("持久层测试记录");
-        record.setMerchantId(merchantId);
-        recordMapper.insert(record);
+        Long recordId = createRecordAndGetId(accessToken, merchantId, "持久层测试记录");
 
-        mockMvc.perform(get("/api/demo-records/{id}", record.getId())
+        mockMvc.perform(get("/api/demo-records/{id}", recordId)
                         .header("Authorization", "Bearer " + accessToken)
                         .header("X-Merchant-Id", merchantId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
-                .andExpect(jsonPath("$.data.id").value(record.getId()))
+                .andExpect(jsonPath("$.data.id").value(recordId))
+                .andExpect(jsonPath("$.data.merchantId").value(merchantId))
                 .andExpect(jsonPath("$.data.name").value("持久层测试记录"));
     }
 
@@ -103,6 +96,24 @@ class PersistenceDemoRecordIntegrationTest {
                 .readTree(result.getResponse().getContentAsString())
                 .path("data")
                 .path("merchantId")
+                .asLong();
+    }
+
+    /** 在指定当前商家中创建示例记录并读取生成的主键。 */
+    private Long createRecordAndGetId(String accessToken, Long merchantId, String name) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/demo-records")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"%s\"}".formatted(name)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.merchantId").value(merchantId))
+                .andReturn();
+        return new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(result.getResponse().getContentAsString())
+                .path("data")
+                .path("id")
                 .asLong();
     }
 
