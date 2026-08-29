@@ -1,6 +1,7 @@
 package com.darkvoice1.dianzhanggui.persistence.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.darkvoice1.dianzhanggui.common.ErrorCode;
 import com.darkvoice1.dianzhanggui.common.tenant.TenantContext;
 import com.darkvoice1.dianzhanggui.infrastructure.exception.BusinessException;
@@ -38,5 +39,29 @@ public class PersistenceDemoRecordService {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }
         return record;
+    }
+
+    /** 在当前商家范围内修改指定记录名称。 */
+    public PersistenceDemoRecord update(Long id, String name) {
+        Long merchantId = TenantContext.requireMerchantId();
+        int updatedRows = recordMapper.update(null, new LambdaUpdateWrapper<PersistenceDemoRecord>()
+                .set(PersistenceDemoRecord::getName, name)
+                .eq(PersistenceDemoRecord::getId, id)
+                .eq(PersistenceDemoRecord::getMerchantId, merchantId));
+        if (updatedRows == 0) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        return findById(id);
+    }
+
+    /** 在当前商家范围内删除指定记录。 */
+    public void delete(Long id) {
+        Long merchantId = TenantContext.requireMerchantId();
+        int deletedRows = recordMapper.delete(new LambdaQueryWrapper<PersistenceDemoRecord>()
+                .eq(PersistenceDemoRecord::getId, id)
+                .eq(PersistenceDemoRecord::getMerchantId, merchantId));
+        if (deletedRows == 0) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
     }
 }

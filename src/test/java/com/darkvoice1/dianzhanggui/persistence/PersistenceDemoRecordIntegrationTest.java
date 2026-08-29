@@ -13,7 +13,9 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -58,6 +60,37 @@ class PersistenceDemoRecordIntegrationTest {
                 .andExpect(jsonPath("$.data.id").value(recordId))
                 .andExpect(jsonPath("$.data.merchantId").value(merchantId))
                 .andExpect(jsonPath("$.data.name").value("持久层测试记录"));
+    }
+
+    /** 验证当前商家可以修改并删除自己创建的示例记录。 */
+    @Test
+    void shouldUpdateAndDeleteRecordInCurrentMerchant() throws Exception {
+        String accessToken = registerAndGetAccessToken();
+        Long merchantId = createMerchantAndGetId(accessToken);
+        Long recordId = createRecordAndGetId(accessToken, merchantId, "原始名称");
+
+        mockMvc.perform(patch("/api/demo-records/{id}", recordId)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"修改后名称\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.id").value(recordId))
+                .andExpect(jsonPath("$.data.merchantId").value(merchantId))
+                .andExpect(jsonPath("$.data.name").value("修改后名称"));
+
+        mockMvc.perform(delete("/api/demo-records/{id}", recordId)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Merchant-Id", merchantId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"));
+
+        mockMvc.perform(get("/api/demo-records/{id}", recordId)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Merchant-Id", merchantId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
     }
 
     /** 验证租户业务请求未选择商家时会被拒绝。 */

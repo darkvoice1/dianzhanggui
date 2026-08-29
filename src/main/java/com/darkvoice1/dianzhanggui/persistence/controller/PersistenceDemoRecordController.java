@@ -3,11 +3,14 @@ package com.darkvoice1.dianzhanggui.persistence.controller;
 import com.darkvoice1.dianzhanggui.common.ApiResponse;
 import com.darkvoice1.dianzhanggui.persistence.model.CreatePersistenceDemoRecordRequest;
 import com.darkvoice1.dianzhanggui.persistence.model.PersistenceDemoRecord;
+import com.darkvoice1.dianzhanggui.persistence.model.UpdatePersistenceDemoRecordRequest;
 import com.darkvoice1.dianzhanggui.persistence.service.PersistenceDemoRecordService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,5 +40,19 @@ public class PersistenceDemoRecordController {
     @GetMapping("/{id}")
     public ApiResponse<PersistenceDemoRecord> findById(@PathVariable @Positive(message = "id 必须是正整数") Long id) {
         return ApiResponse.success(recordService.findById(id));
+    }
+
+    /** 在当前商家范围内修改示例记录名称。 */
+    @PatchMapping("/{id}")
+    public ApiResponse<PersistenceDemoRecord> update(@PathVariable @Positive(message = "id 必须是正整数") Long id,
+            @Valid @RequestBody UpdatePersistenceDemoRecordRequest request) {
+        return ApiResponse.success(recordService.update(id, request.name().trim()));
+    }
+
+    /** 在当前商家范围内删除示例记录。 */
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable @Positive(message = "id 必须是正整数") Long id) {
+        recordService.delete(id);
+        return ApiResponse.success(null);
     }
 }
