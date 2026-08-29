@@ -125,6 +125,24 @@ class PermissionResolverIntegrationTest {
         }
     }
 
+    /** 验证当前租户中缺少指定权限时返回统一权限错误。 */
+    @Test
+    void shouldRejectRequiredPermissionWhenCurrentUserDoesNotHaveIt() {
+        UserAccount user = createUser();
+        Merchant merchant = createMerchant();
+        createMembership(user, merchant, "MEMBER");
+
+        TenantContext.setMerchantId(merchant.getId());
+        try {
+            BusinessException exception = assertThrows(BusinessException.class,
+                    () -> permissionResolver.requirePermission(user.getId(), "MERCHANT_MEMBER_MANAGE"));
+
+            assertEquals("PERMISSION_DENIED", exception.getErrorCode().code());
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
     /** 创建权限解析测试使用的用户。 */
     private UserAccount createUser() {
         UserAccount user = new UserAccount();

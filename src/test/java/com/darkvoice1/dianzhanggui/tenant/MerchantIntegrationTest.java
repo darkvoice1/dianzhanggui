@@ -235,6 +235,34 @@ class MerchantIntegrationTest {
                 .andExpect(jsonPath("$.code").value("OWNER_ROLE_CHANGE_NOT_ALLOWED"));
     }
 
+    /** 验证成员角色只能在顾客和员工之间变更。 */
+    @Test
+    void shouldRejectUnsupportedTargetRole() throws Exception {
+        String ownerToken = registerAndGetAccessToken("owner-" + UUID.randomUUID() + "@example.com");
+        String memberEmail = "member-" + UUID.randomUUID() + "@example.com";
+        String memberToken = registerAndGetAccessToken(memberEmail);
+        Long merchantId = createMerchantAndGetId(ownerToken);
+        Long memberUserId = findUserId(memberEmail);
+
+        mockMvc.perform(post("/api/merchants/{merchantId}/members", merchantId)
+                        .header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/merchants/{merchantId}/members/{memberUserId}/role", merchantId, memberUserId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"OWNER\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        MerchantMember member = merchantMemberMapper.selectOne(new LambdaQueryWrapper<MerchantMember>()
+                .eq(MerchantMember::getMerchantId, merchantId)
+                .eq(MerchantMember::getUserId, memberUserId));
+        assertNotNull(member);
+        assertEquals("MEMBER", member.getRole());
+    }
+
     /** 创建测试商家并读取接口返回的商家主键。 */
     private Long createMerchantAndGetId(String accessToken) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/merchants")
