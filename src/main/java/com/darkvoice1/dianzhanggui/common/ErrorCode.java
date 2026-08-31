@@ -42,6 +42,12 @@ public enum ErrorCode {
     /** 当前商家已经存在该人员档案。 */
     STAFF_PROFILE_ALREADY_EXISTS("STAFF_PROFILE_ALREADY_EXISTS", "该人员档案已存在"),
 
+    /** 当前档案已停用，不能继续执行需要有效档案的操作。 */
+    PROFILE_INACTIVE("PROFILE_INACTIVE", "档案已停用"),
+
+    /** 当前档案已经是停用状态。 */
+    PROFILE_ALREADY_INACTIVE("PROFILE_ALREADY_INACTIVE", "档案已经停用"),
+
     /** 租户业务请求缺少当前商家。 */
     TENANT_REQUIRED("TENANT_REQUIRED", "请先选择当前商家"),
 

@@ -89,7 +89,7 @@ class PermissionResolverIntegrationTest {
 
         Set<String> permissions = permissionResolver.resolvePermissions(user.getId(), merchant.getId());
 
-        assertEquals(Set.of("MERCHANT_MEMBER_MANAGE", "MERCHANT_MANAGE", "ORDER_VIEW"), permissions);
+        assertEquals(Set.of("MERCHANT_MEMBER_MANAGE", "PROFILE_MANAGE", "MERCHANT_MANAGE", "ORDER_VIEW"), permissions);
     }
 
     /** 验证用户不属于指定商家时不能解析该商家的权限。 */
@@ -117,7 +117,8 @@ class PermissionResolverIntegrationTest {
 
         TenantContext.setMerchantId(merchant.getId());
         try {
-            assertEquals(Set.of("STAFF_VIEW"), permissionResolver.resolveCurrentPermissions(user.getId()));
+            assertEquals(Set.of("PROFILE_MANAGE", "STAFF_VIEW"),
+                    permissionResolver.resolveCurrentPermissions(user.getId()));
             assertTrue(permissionResolver.hasPermission(user.getId(), "STAFF_VIEW"));
             assertFalse(permissionResolver.hasPermission(user.getId(), "ORDER_VIEW"));
         } finally {

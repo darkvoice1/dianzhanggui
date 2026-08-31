@@ -2,10 +2,15 @@ package com.darkvoice1.dianzhanggui.tenant.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.darkvoice1.dianzhanggui.auth.mapper.UserAccountMapper;
+import com.darkvoice1.dianzhanggui.auth.model.UserAccount;
 import com.darkvoice1.dianzhanggui.common.ErrorCode;
 import com.darkvoice1.dianzhanggui.common.tenant.TenantContext;
+import com.darkvoice1.dianzhanggui.customer.mapper.CustomerProfileMapper;
+import com.darkvoice1.dianzhanggui.customer.model.CustomerProfile;
 import com.darkvoice1.dianzhanggui.infrastructure.exception.BusinessException;
 import com.darkvoice1.dianzhanggui.permission.service.PermissionResolver;
+import com.darkvoice1.dianzhanggui.staff.mapper.StaffProfileMapper;
+import com.darkvoice1.dianzhanggui.staff.model.StaffProfile;
 import com.darkvoice1.dianzhanggui.tenant.model.ChangeMerchantMemberRoleRequest;
 import com.darkvoice1.dianzhanggui.tenant.mapper.MerchantMapper;
 import com.darkvoice1.dianzhanggui.tenant.mapper.MerchantMemberMapper;
@@ -27,6 +32,10 @@ public class MerchantService {
 
     private static final String OWNER_ROLE = "OWNER";
     private static final String MEMBER_ROLE = "MEMBER";
+    private static final String EMPLOYEE_ROLE = "EMPLOYEE";
+    private static final String ACTIVE_STATUS = "ACTIVE";
+    private static final String INACTIVE_STATUS = "INACTIVE";
+    private static final String DEFAULT_POSITION = "GENERAL";
     private static final String MERCHANT_MEMBER_MANAGE_PERMISSION = "MERCHANT_MEMBER_MANAGE";
 
     private final UserAccountMapper userAccountMapper;
@@ -34,16 +43,21 @@ public class MerchantService {
     private final StoreMapper storeMapper;
     private final MerchantMemberMapper merchantMemberMapper;
     private final PermissionResolver permissionResolver;
+    private final CustomerProfileMapper customerProfileMapper;
+    private final StaffProfileMapper staffProfileMapper;
 
     /** 创建商家服务并注入所需的数据访问组件。 */
     public MerchantService(UserAccountMapper userAccountMapper, MerchantMapper merchantMapper,
                            StoreMapper storeMapper, MerchantMemberMapper merchantMemberMapper,
-                           PermissionResolver permissionResolver) {
+                           PermissionResolver permissionResolver, CustomerProfileMapper customerProfileMapper,
+                           StaffProfileMapper staffProfileMapper) {
         this.userAccountMapper = userAccountMapper;
         this.merchantMapper = merchantMapper;
         this.storeMapper = storeMapper;
         this.merchantMemberMapper = merchantMemberMapper;
         this.permissionResolver = permissionResolver;
+        this.customerProfileMapper = customerProfileMapper;
+        this.staffProfileMapper = staffProfileMapper;
     }
 
     /** 为当前登录用户创建商家、首个门店及创建者成员关系。 */
@@ -87,7 +101,8 @@ public class MerchantService {
         merchantMemberMapper.insert(member);
     }
 
-    /** 变更当前商家已有成员的角色，并校验成员管理权限。 */
+    /** 变更当前商家已有成员的角色，并在同一事务内同步档案状态。 */
+    @Transactional
     public void changeMemberRole(Long operatorUserId, Long merchantId, Long memberUserId,
             ChangeMerchantMemberRoleRequest request) {
         verifyCurrentMerchant(merchantId);
@@ -99,8 +114,10 @@ public class MerchantService {
         if (OWNER_ROLE.equals(member.getRole())) {
             throw new BusinessException(ErrorCode.OWNER_ROLE_CHANGE_NOT_ALLOWED);
         }
+        String previousRole = member.getRole();
         member.setRole(request.role());
         merchantMemberMapper.updateById(member);
+        synchronizeProfiles(merchantId, memberUserId, previousRole, member.getRole());
     }
 
     /** 查询当前用户所属商家及其在商家中的角色。 */
@@ -135,6 +152,68 @@ public class MerchantService {
         if (!TenantContext.requireMerchantId().equals(merchantId)) {
             throw new BusinessException(ErrorCode.MERCHANT_ACCESS_DENIED);
         }
+    }
+
+    /** 根据成员角色变化同步客户和人员档案状态。 */
+    private void synchronizeProfiles(Long merchantId, Long userId, String previousRole, String targetRole) {
+        if (MEMBER_ROLE.equals(previousRole) && EMPLOYEE_ROLE.equals(targetRole)) {
+            CustomerProfile customer = findCustomerProfile(merchantId, userId);
+            if (customer != null) {
+                customer.setStatus(INACTIVE_STATUS);
+                customerProfileMapper.updateById(customer);
+            }
+
+            StaffProfile staff = findStaffProfile(merchantId, userId);
+            if (staff == null) {
+                UserAccount user = userAccountMapper.selectById(userId);
+                staff = new StaffProfile();
+                staff.setMerchantId(merchantId);
+                staff.setUserId(userId);
+                staff.setName(customer == null ? user.getEmail() : customer.getName());
+                staff.setPhone(customer == null ? null : customer.getPhone());
+                staff.setPosition(DEFAULT_POSITION);
+                staff.setStatus(ACTIVE_STATUS);
+                staffProfileMapper.insert(staff);
+            } else {
+                staff.setStatus(ACTIVE_STATUS);
+                staffProfileMapper.updateById(staff);
+            }
+        } else if (EMPLOYEE_ROLE.equals(previousRole) && MEMBER_ROLE.equals(targetRole)) {
+            StaffProfile staff = findStaffProfile(merchantId, userId);
+            if (staff != null) {
+                staff.setStatus(INACTIVE_STATUS);
+                staffProfileMapper.updateById(staff);
+            }
+
+            CustomerProfile customer = findCustomerProfile(merchantId, userId);
+            if (customer == null) {
+                UserAccount user = userAccountMapper.selectById(userId);
+                customer = new CustomerProfile();
+                customer.setMerchantId(merchantId);
+                customer.setUserId(userId);
+                customer.setName(staff == null ? user.getEmail() : staff.getName());
+                customer.setPhone(staff == null ? null : staff.getPhone());
+                customer.setStatus(ACTIVE_STATUS);
+                customerProfileMapper.insert(customer);
+            } else {
+                customer.setStatus(ACTIVE_STATUS);
+                customerProfileMapper.updateById(customer);
+            }
+        }
+    }
+
+    /** 查询当前商家指定用户的客户档案。 */
+    private CustomerProfile findCustomerProfile(Long merchantId, Long userId) {
+        return customerProfileMapper.selectOne(new LambdaQueryWrapper<CustomerProfile>()
+                .eq(CustomerProfile::getMerchantId, merchantId)
+                .eq(CustomerProfile::getUserId, userId));
+    }
+
+    /** 查询当前商家指定用户的人员档案。 */
+    private StaffProfile findStaffProfile(Long merchantId, Long userId) {
+        return staffProfileMapper.selectOne(new LambdaQueryWrapper<StaffProfile>()
+                .eq(StaffProfile::getMerchantId, merchantId)
+                .eq(StaffProfile::getUserId, userId));
     }
 
     /** 查询商家，不存在时返回统一的资源不存在错误。 */
