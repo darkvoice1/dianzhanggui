@@ -36,6 +36,12 @@ public enum ErrorCode {
     /** 商家老板角色不允许通过成员管理接口变更。 */
     OWNER_ROLE_CHANGE_NOT_ALLOWED("OWNER_ROLE_CHANGE_NOT_ALLOWED", "商家老板角色不能变更"),
 
+    /** 当前商家已经存在该客户档案。 */
+    CUSTOMER_PROFILE_ALREADY_EXISTS("CUSTOMER_PROFILE_ALREADY_EXISTS", "该客户档案已存在"),
+
+    /** 当前商家已经存在该人员档案。 */
+    STAFF_PROFILE_ALREADY_EXISTS("STAFF_PROFILE_ALREADY_EXISTS", "该人员档案已存在"),
+
     /** 租户业务请求缺少当前商家。 */
     TENANT_REQUIRED("TENANT_REQUIRED", "请先选择当前商家"),
 

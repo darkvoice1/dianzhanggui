@@ -2,6 +2,7 @@ package com.darkvoice1.dianzhanggui.health;
 
 import com.darkvoice1.dianzhanggui.health.controller.HealthController;
 import com.darkvoice1.dianzhanggui.health.service.HealthService;
+import com.darkvoice1.dianzhanggui.tenant.mapper.MerchantMemberMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -24,6 +25,10 @@ class HealthControllerTest {
 
     @MockitoBean
     private HealthService healthService;
+
+    /** 为租户过滤器提供切片测试所需的成员关系模拟组件。 */
+    @MockitoBean
+    private MerchantMemberMapper merchantMemberMapper;
 
     /** 验证健康检查接口返回统一成功响应和 UP 状态。 */
     @Test

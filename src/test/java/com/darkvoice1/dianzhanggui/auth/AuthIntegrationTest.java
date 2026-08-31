@@ -58,7 +58,7 @@ class AuthIntegrationTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    /** 验证注册后密码以哈希保存，且访问令牌可以访问受保护接口。 */
+    /** 验证注册后密码以哈希保存，且已认证请求会继续校验当前商家。 */
     @Test
     void shouldRegisterAndAccessProtectedEndpoint() throws Exception {
         String email = uniqueEmail();
@@ -71,8 +71,8 @@ class AuthIntegrationTest {
 
         mockMvc.perform(get("/api/demo-records/1")
                         .header("Authorization", "Bearer " + tokens.path("accessToken").asText()))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TENANT_REQUIRED"));
     }
 
     /** 验证未登录请求和错误密码登录均返回统一认证错误。 */
