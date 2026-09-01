@@ -6,7 +6,6 @@ import com.darkvoice1.dianzhanggui.auth.mapper.UserAccountMapper;
 import com.darkvoice1.dianzhanggui.auth.model.UserAccount;
 import com.darkvoice1.dianzhanggui.common.ErrorCode;
 import com.darkvoice1.dianzhanggui.common.tenant.TenantContext;
-import com.darkvoice1.dianzhanggui.common.page.PageQuery;
 import com.darkvoice1.dianzhanggui.common.page.PageResult;
 import com.darkvoice1.dianzhanggui.common.page.PageResults;
 import com.darkvoice1.dianzhanggui.customer.mapper.CustomerProfileMapper;

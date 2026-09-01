@@ -190,6 +190,62 @@ class ProfileIntegrationTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
     }
 
+    /** 验证客户档案分页结果只包含当前商家的数据。 */
+    @Test
+    void shouldPageCustomerProfilesWithinCurrentMerchant() throws Exception {
+        String ownerToken = registerAndGetAccessToken("profile-page-owner-" + UUID.randomUUID() + "@example.com");
+        String otherOwnerToken = registerAndGetAccessToken("profile-page-other-" + UUID.randomUUID() + "@example.com");
+        Long merchantId = createMerchantAndGetId(ownerToken);
+        Long otherMerchantId = createMerchantAndGetId(otherOwnerToken);
+        createCustomerProfileAndGetId(ownerToken, merchantId, null);
+        createCustomerProfileAndGetId(ownerToken, merchantId, null);
+        createCustomerProfileAndGetId(otherOwnerToken, otherMerchantId, null);
+
+        mockMvc.perform(get("/api/customer-profiles")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .param("page", "1")
+                        .param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records.length()").value(1))
+                .andExpect(jsonPath("$.data.total").value(2));
+    }
+
+    /** 验证员工档案分页和商家成员角色筛选。 */
+    @Test
+    void shouldPageStaffProfilesAndMerchantMembers() throws Exception {
+        String ownerToken = registerAndGetAccessToken("staff-page-owner-" + UUID.randomUUID() + "@example.com");
+        String employeeEmail = "staff-page-employee-" + UUID.randomUUID() + "@example.com";
+        String employeeToken = registerAndGetAccessToken(employeeEmail);
+        Long merchantId = createMerchantAndGetId(ownerToken);
+        Long employeeUserId = findUserId(employeeEmail);
+        joinMerchant(employeeToken, merchantId);
+        changeMemberRole(ownerToken, merchantId, employeeUserId, "EMPLOYEE");
+        StaffProfile staff = findStaffProfile(merchantId, employeeUserId);
+        assertNotNull(staff);
+
+        mockMvc.perform(get("/api/staff-profiles")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .param("page", "1")
+                        .param("size", "1")
+                        .param("keyword", staff.getName()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records.length()").value(1))
+                .andExpect(jsonPath("$.data.total").value(1));
+
+        mockMvc.perform(get("/api/merchants/{merchantId}/members", merchantId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .param("page", "1")
+                        .param("size", "10")
+                        .param("role", "EMPLOYEE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records.length()").value(1))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].role").value("EMPLOYEE"));
+    }
+
     /** 创建测试商家并读取商家主键。 */
     private Long createMerchantAndGetId(String accessToken) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/merchants")

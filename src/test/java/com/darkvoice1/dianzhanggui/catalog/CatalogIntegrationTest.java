@@ -57,6 +57,12 @@ class CatalogIntegrationTest {
         Long merchantId = createMerchantAndGetId(ownerToken);
         Long productId = createProductAndGetId(ownerToken, merchantId, "PRODUCT", "100.00", "80.00");
 
+        mockMvc.perform(post("/api/product-services/{id}/unpublish", productId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BUSINESS_ERROR"));
+
         mockMvc.perform(post("/api/product-services/{id}/publish", productId)
                         .header("Authorization", "Bearer " + ownerToken)
                         .header("X-Merchant-Id", merchantId))
@@ -74,6 +80,44 @@ class CatalogIntegrationTest {
                         .header("X-Merchant-Id", merchantId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("OFF_SALE"));
+    }
+
+    /** 验证商品目录分页筛选、分页上限和跨商家列表隔离。 */
+    @Test
+    void shouldPageAndFilterCatalogWithinCurrentMerchant() throws Exception {
+        String ownerToken = registerAndGetAccessToken("catalog-page-owner-" + UUID.randomUUID() + "@example.com");
+        String otherOwnerToken = registerAndGetAccessToken("catalog-page-other-" + UUID.randomUUID() + "@example.com");
+        Long merchantId = createMerchantAndGetId(ownerToken);
+        Long otherMerchantId = createMerchantAndGetId(otherOwnerToken);
+        createProductAndGetId(ownerToken, merchantId, "PRODUCT", "100.00", "80.00");
+        createProductAndGetId(ownerToken, merchantId, "SERVICE", "200.00", "150.00");
+
+        mockMvc.perform(get("/api/product-services")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .param("page", "1")
+                        .param("size", "1")
+                        .param("type", "SERVICE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records.length()").value(1))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.size").value(1));
+
+        mockMvc.perform(get("/api/product-services")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .param("size", "101"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/product-services")
+                        .header("Authorization", "Bearer " + otherOwnerToken)
+                        .header("X-Merchant-Id", otherMerchantId)
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records.length()").value(0))
+                .andExpect(jsonPath("$.data.total").value(0));
     }
 
     /** 验证顾客没有目录管理权限，非法价格无法创建。 */
