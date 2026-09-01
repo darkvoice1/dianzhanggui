@@ -1,9 +1,11 @@
 package com.darkvoice1.dianzhanggui.staff.controller;
 
 import com.darkvoice1.dianzhanggui.common.ApiResponse;
+import com.darkvoice1.dianzhanggui.common.page.PageResult;
 import com.darkvoice1.dianzhanggui.staff.model.CreateStaffProfileRequest;
 import com.darkvoice1.dianzhanggui.staff.model.StaffProfile;
 import com.darkvoice1.dianzhanggui.staff.model.UpdateStaffProfileRequest;
+import com.darkvoice1.dianzhanggui.staff.model.StaffProfileQuery;
 import com.darkvoice1.dianzhanggui.staff.service.StaffProfileService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -60,6 +62,13 @@ public class StaffProfileController {
     public ApiResponse<StaffProfile> findById(@AuthenticationPrincipal Jwt jwt,
             @PathVariable @Positive(message = "id 必须是正整数") Long id) {
         return ApiResponse.success(staffProfileService.findById(currentUserId(jwt), id));
+    }
+
+    /** 分页查询当前商家的人员档案。 */
+    @GetMapping
+    public ApiResponse<PageResult<StaffProfile>> page(@AuthenticationPrincipal Jwt jwt,
+            @Valid StaffProfileQuery query) {
+        return ApiResponse.success(staffProfileService.page(currentUserId(jwt), query));
     }
 
     /** 从已验证的 JWT 中读取当前操作者 ID。 */

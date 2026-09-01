@@ -1,9 +1,12 @@
 package com.darkvoice1.dianzhanggui.tenant.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.darkvoice1.dianzhanggui.auth.mapper.UserAccountMapper;
 import com.darkvoice1.dianzhanggui.auth.model.UserAccount;
 import com.darkvoice1.dianzhanggui.common.ErrorCode;
+import com.darkvoice1.dianzhanggui.common.page.PageResult;
+import com.darkvoice1.dianzhanggui.common.page.PageResults;
 import com.darkvoice1.dianzhanggui.common.tenant.TenantContext;
 import com.darkvoice1.dianzhanggui.customer.mapper.CustomerProfileMapper;
 import com.darkvoice1.dianzhanggui.customer.model.CustomerProfile;
@@ -19,6 +22,7 @@ import com.darkvoice1.dianzhanggui.tenant.model.CreateMerchantRequest;
 import com.darkvoice1.dianzhanggui.tenant.model.Merchant;
 import com.darkvoice1.dianzhanggui.tenant.model.MerchantCreationResponse;
 import com.darkvoice1.dianzhanggui.tenant.model.MerchantMember;
+import com.darkvoice1.dianzhanggui.tenant.model.MerchantMemberQuery;
 import com.darkvoice1.dianzhanggui.tenant.model.MerchantSummaryResponse;
 import com.darkvoice1.dianzhanggui.tenant.model.Store;
 import org.springframework.stereotype.Service;
@@ -128,6 +132,27 @@ public class MerchantService {
                 .stream()
                 .map(this::toMerchantSummary)
                 .toList();
+    }
+
+    /** 分页查询当前商家的成员关系。 */
+    public PageResult<MerchantMember> pageMembers(Long operatorUserId, Long merchantId,
+            MerchantMemberQuery query) {
+        verifyCurrentMerchant(merchantId);
+        permissionResolver.requirePermission(operatorUserId, MERCHANT_MEMBER_MANAGE_PERMISSION);
+        LambdaQueryWrapper<MerchantMember> wrapper = new LambdaQueryWrapper<MerchantMember>()
+                .eq(MerchantMember::getMerchantId, merchantId)
+                .orderByDesc(MerchantMember::getId);
+        if (query.getRole() != null && !query.getRole().isBlank()) {
+            wrapper.eq(MerchantMember::getRole, query.getRole().trim().toUpperCase());
+        }
+        if (query.getCreatedFrom() != null) {
+            wrapper.ge(MerchantMember::getCreatedAt, query.getCreatedFrom());
+        }
+        if (query.getCreatedTo() != null) {
+            wrapper.le(MerchantMember::getCreatedAt, query.getCreatedTo());
+        }
+        return PageResults.from(merchantMemberMapper.selectPage(
+                new Page<>(query.currentPage(), query.getSize()), wrapper));
     }
 
     /** 校验当前用户的成员关系，并返回被选中的商家。 */

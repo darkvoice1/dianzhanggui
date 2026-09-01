@@ -1,9 +1,11 @@
 package com.darkvoice1.dianzhanggui.customer.controller;
 
 import com.darkvoice1.dianzhanggui.common.ApiResponse;
+import com.darkvoice1.dianzhanggui.common.page.PageResult;
 import com.darkvoice1.dianzhanggui.customer.model.CreateCustomerProfileRequest;
 import com.darkvoice1.dianzhanggui.customer.model.CustomerProfile;
 import com.darkvoice1.dianzhanggui.customer.model.UpdateCustomerProfileRequest;
+import com.darkvoice1.dianzhanggui.customer.model.CustomerProfileQuery;
 import com.darkvoice1.dianzhanggui.customer.service.CustomerProfileService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -60,6 +62,13 @@ public class CustomerProfileController {
     public ApiResponse<CustomerProfile> findById(@AuthenticationPrincipal Jwt jwt,
             @PathVariable @Positive(message = "id 必须是正整数") Long id) {
         return ApiResponse.success(customerProfileService.findById(currentUserId(jwt), id));
+    }
+
+    /** 分页查询当前商家的客户档案。 */
+    @GetMapping
+    public ApiResponse<PageResult<CustomerProfile>> page(@AuthenticationPrincipal Jwt jwt,
+            @Valid CustomerProfileQuery query) {
+        return ApiResponse.success(customerProfileService.page(currentUserId(jwt), query));
     }
 
     /** 从已验证的 JWT 中读取当前操作者 ID。 */

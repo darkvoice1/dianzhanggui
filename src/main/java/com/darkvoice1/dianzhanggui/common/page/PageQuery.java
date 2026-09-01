@@ -49,4 +49,9 @@ public class PageQuery {
     public long offset() {
         return (long) (page - 1) * size;
     }
+
+    /** 创建 MyBatis-Plus 使用的页码和页大小。 */
+    public long currentPage() {
+        return page;
+    }
 }

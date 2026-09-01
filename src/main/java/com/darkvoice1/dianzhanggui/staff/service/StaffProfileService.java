@@ -1,16 +1,19 @@
 package com.darkvoice1.dianzhanggui.staff.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.darkvoice1.dianzhanggui.auth.mapper.UserAccountMapper;
 import com.darkvoice1.dianzhanggui.auth.model.UserAccount;
 import com.darkvoice1.dianzhanggui.common.ErrorCode;
 import com.darkvoice1.dianzhanggui.common.tenant.TenantContext;
+import com.darkvoice1.dianzhanggui.common.page.PageResult;
 import com.darkvoice1.dianzhanggui.infrastructure.exception.BusinessException;
 import com.darkvoice1.dianzhanggui.permission.service.PermissionResolver;
 import com.darkvoice1.dianzhanggui.staff.mapper.StaffProfileMapper;
 import com.darkvoice1.dianzhanggui.staff.model.CreateStaffProfileRequest;
 import com.darkvoice1.dianzhanggui.staff.model.StaffProfile;
 import com.darkvoice1.dianzhanggui.staff.model.UpdateStaffProfileRequest;
+import com.darkvoice1.dianzhanggui.staff.model.StaffProfileQuery;
 import com.darkvoice1.dianzhanggui.tenant.mapper.MerchantMemberMapper;
 import com.darkvoice1.dianzhanggui.tenant.model.MerchantMember;
 import org.springframework.stereotype.Service;
@@ -101,6 +104,32 @@ public class StaffProfileService {
         Long merchantId = TenantContext.requireMerchantId();
         permissionResolver.requirePermission(operatorUserId, PROFILE_MANAGE_PERMISSION);
         return findByMerchantAndId(merchantId, id);
+    }
+
+    /** 分页查询当前商家的人员档案。 */
+    public PageResult<StaffProfile> page(Long operatorUserId, StaffProfileQuery query) {
+        Long merchantId = TenantContext.requireMerchantId();
+        permissionResolver.requirePermission(operatorUserId, PROFILE_MANAGE_PERMISSION);
+        LambdaQueryWrapper<StaffProfile> wrapper = new LambdaQueryWrapper<StaffProfile>()
+                .eq(StaffProfile::getMerchantId, merchantId)
+                .orderByDesc(StaffProfile::getId);
+        if (query.getKeyword() != null && !query.getKeyword().isBlank()) {
+            String keyword = query.getKeyword().trim();
+            wrapper.and(item -> item.like(StaffProfile::getName, keyword)
+                    .or().like(StaffProfile::getPhone, keyword)
+                    .or().like(StaffProfile::getPosition, keyword));
+        }
+        if (query.getStatus() != null && !query.getStatus().isBlank()) {
+            wrapper.eq(StaffProfile::getStatus, query.getStatus().trim().toUpperCase());
+        }
+        if (query.getCreatedFrom() != null) {
+            wrapper.ge(StaffProfile::getCreatedAt, query.getCreatedFrom());
+        }
+        if (query.getCreatedTo() != null) {
+            wrapper.le(StaffProfile::getCreatedAt, query.getCreatedTo());
+        }
+        return com.darkvoice1.dianzhanggui.common.page.PageResults.from(staffProfileMapper.selectPage(
+                new Page<>(query.currentPage(), query.getSize()), wrapper));
     }
 
     /** 按商家和档案主键查询人员档案。 */

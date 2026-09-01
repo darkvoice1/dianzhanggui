@@ -8,8 +8,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /** 表示商家目录中的商品或服务。 */
-@TableName("product_service")
-public class ProductService {
+@TableName("product")
+public class Product {
 
     /** 商品或服务主键。 */
     @TableId(type = IdType.AUTO)

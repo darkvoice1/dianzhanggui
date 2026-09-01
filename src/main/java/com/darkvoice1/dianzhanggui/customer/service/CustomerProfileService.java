@@ -1,14 +1,19 @@
 package com.darkvoice1.dianzhanggui.customer.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.darkvoice1.dianzhanggui.auth.mapper.UserAccountMapper;
 import com.darkvoice1.dianzhanggui.auth.model.UserAccount;
 import com.darkvoice1.dianzhanggui.common.ErrorCode;
 import com.darkvoice1.dianzhanggui.common.tenant.TenantContext;
+import com.darkvoice1.dianzhanggui.common.page.PageQuery;
+import com.darkvoice1.dianzhanggui.common.page.PageResult;
+import com.darkvoice1.dianzhanggui.common.page.PageResults;
 import com.darkvoice1.dianzhanggui.customer.mapper.CustomerProfileMapper;
 import com.darkvoice1.dianzhanggui.customer.model.CreateCustomerProfileRequest;
 import com.darkvoice1.dianzhanggui.customer.model.CustomerProfile;
 import com.darkvoice1.dianzhanggui.customer.model.UpdateCustomerProfileRequest;
+import com.darkvoice1.dianzhanggui.customer.model.CustomerProfileQuery;
 import com.darkvoice1.dianzhanggui.infrastructure.exception.BusinessException;
 import com.darkvoice1.dianzhanggui.permission.service.PermissionResolver;
 import com.darkvoice1.dianzhanggui.tenant.mapper.MerchantMemberMapper;
@@ -88,6 +93,31 @@ public class CustomerProfileService {
         Long merchantId = TenantContext.requireMerchantId();
         permissionResolver.requirePermission(operatorUserId, PROFILE_MANAGE_PERMISSION);
         return findByMerchantAndId(merchantId, id);
+    }
+
+    /** 分页查询当前商家的客户档案。 */
+    public PageResult<CustomerProfile> page(Long operatorUserId, CustomerProfileQuery query) {
+        Long merchantId = TenantContext.requireMerchantId();
+        permissionResolver.requirePermission(operatorUserId, PROFILE_MANAGE_PERMISSION);
+        LambdaQueryWrapper<CustomerProfile> wrapper = new LambdaQueryWrapper<CustomerProfile>()
+                .eq(CustomerProfile::getMerchantId, merchantId)
+                .orderByDesc(CustomerProfile::getId);
+        if (query.getKeyword() != null && !query.getKeyword().isBlank()) {
+            String keyword = query.getKeyword().trim();
+            wrapper.and(item -> item.like(CustomerProfile::getName, keyword)
+                    .or().like(CustomerProfile::getPhone, keyword));
+        }
+        if (query.getStatus() != null && !query.getStatus().isBlank()) {
+            wrapper.eq(CustomerProfile::getStatus, query.getStatus().trim().toUpperCase());
+        }
+        if (query.getCreatedFrom() != null) {
+            wrapper.ge(CustomerProfile::getCreatedAt, query.getCreatedFrom());
+        }
+        if (query.getCreatedTo() != null) {
+            wrapper.le(CustomerProfile::getCreatedAt, query.getCreatedTo());
+        }
+        return PageResults.from(customerProfileMapper.selectPage(
+                new Page<>(query.currentPage(), query.getSize()), wrapper));
     }
 
     /** 按商家和档案主键查询客户档案。 */

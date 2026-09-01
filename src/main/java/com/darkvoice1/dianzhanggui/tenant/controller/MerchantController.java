@@ -1,12 +1,16 @@
 package com.darkvoice1.dianzhanggui.tenant.controller;
 
 import com.darkvoice1.dianzhanggui.common.ApiResponse;
+import com.darkvoice1.dianzhanggui.common.page.PageResult;
 import com.darkvoice1.dianzhanggui.tenant.model.ChangeMerchantMemberRoleRequest;
 import com.darkvoice1.dianzhanggui.tenant.model.CreateMerchantRequest;
 import com.darkvoice1.dianzhanggui.tenant.model.MerchantCreationResponse;
 import com.darkvoice1.dianzhanggui.tenant.model.MerchantSummaryResponse;
+import com.darkvoice1.dianzhanggui.tenant.model.MerchantMember;
+import com.darkvoice1.dianzhanggui.tenant.model.MerchantMemberQuery;
 import com.darkvoice1.dianzhanggui.tenant.service.MerchantService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,6 +48,14 @@ public class MerchantController {
     public ApiResponse<Void> joinMerchant(@AuthenticationPrincipal Jwt jwt, @PathVariable Long merchantId) {
         merchantService.joinMerchant(Long.valueOf(jwt.getSubject()), merchantId);
         return ApiResponse.success(null);
+    }
+
+    /** 分页查询当前商家的成员关系。 */
+    @GetMapping("/{merchantId}/members")
+    public ApiResponse<PageResult<MerchantMember>> pageMembers(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable @Positive(message = "merchantId 必须是正整数") Long merchantId,
+            @Valid MerchantMemberQuery query) {
+        return ApiResponse.success(merchantService.pageMembers(Long.valueOf(jwt.getSubject()), merchantId, query));
     }
 
     /** 由老板变更当前商家已有成员的角色。 */

@@ -9,7 +9,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 /** 表示编辑商品或服务时提交的信息。 */
-public record UpdateProductServiceRequest(
+public record UpdateProductRequest(
         @NotBlank(message = "商品或服务名称不能为空")
         @Size(max = 120, message = "商品或服务名称不能超过 120 个字符")
         String name,

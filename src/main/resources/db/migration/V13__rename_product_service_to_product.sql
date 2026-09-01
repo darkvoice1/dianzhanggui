@@ -1,0 +1,10 @@
+ALTER TABLE product_service RENAME TO product;
+
+ALTER TABLE product RENAME CONSTRAINT ck_product_service_type TO ck_product_type;
+ALTER TABLE product RENAME CONSTRAINT ck_product_service_price_nonnegative TO ck_product_price_nonnegative;
+ALTER TABLE product RENAME CONSTRAINT ck_product_service_selling_price TO ck_product_selling_price;
+ALTER TABLE product RENAME CONSTRAINT ck_product_service_status TO ck_product_status;
+
+ALTER INDEX idx_product_service_merchant_status RENAME TO idx_product_merchant_status;
+ALTER INDEX idx_product_service_merchant_type RENAME TO idx_product_merchant_type;
+ALTER INDEX idx_product_service_merchant_name RENAME TO idx_product_merchant_name;
