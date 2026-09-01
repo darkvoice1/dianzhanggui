@@ -8,6 +8,7 @@ import com.darkvoice1.dianzhanggui.catalog.model.UpdateProductServiceRequest;
 import com.darkvoice1.dianzhanggui.common.ErrorCode;
 import com.darkvoice1.dianzhanggui.common.tenant.TenantContext;
 import com.darkvoice1.dianzhanggui.infrastructure.exception.BusinessException;
+import com.darkvoice1.dianzhanggui.permission.service.PermissionResolver;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -21,16 +22,21 @@ public class ProductServiceCatalogService {
     private static final String DRAFT_STATUS = "DRAFT";
     private static final String ON_SALE_STATUS = "ON_SALE";
     private static final String OFF_SALE_STATUS = "OFF_SALE";
+    private static final String CATALOG_MANAGE_PERMISSION = "CATALOG_MANAGE";
 
     private final ProductServiceMapper productServiceMapper;
+    private final PermissionResolver permissionResolver;
 
     /** 创建商品与服务目录服务并注入数据访问组件。 */
-    public ProductServiceCatalogService(ProductServiceMapper productServiceMapper) {
+    public ProductServiceCatalogService(ProductServiceMapper productServiceMapper,
+            PermissionResolver permissionResolver) {
         this.productServiceMapper = productServiceMapper;
+        this.permissionResolver = permissionResolver;
     }
 
     /** 在当前商家创建商品或服务，初始状态为草稿。 */
-    public ProductService create(CreateProductServiceRequest request) {
+    public ProductService create(Long operatorUserId, CreateProductServiceRequest request) {
+        requireCatalogPermission(operatorUserId);
         validateType(request.type());
         validatePrices(request.originalPrice(), request.sellingPrice());
 
@@ -47,12 +53,14 @@ public class ProductServiceCatalogService {
     }
 
     /** 查询当前商家的商品或服务详情。 */
-    public ProductService findById(Long id) {
+    public ProductService findById(Long operatorUserId, Long id) {
+        requireCatalogPermission(operatorUserId);
         return findCurrentMerchantProductService(id);
     }
 
     /** 编辑当前商家的商品或服务基础资料和价格。 */
-    public ProductService update(Long id, UpdateProductServiceRequest request) {
+    public ProductService update(Long operatorUserId, Long id, UpdateProductServiceRequest request) {
+        requireCatalogPermission(operatorUserId);
         validateType(request.type());
         validatePrices(request.originalPrice(), request.sellingPrice());
 
@@ -67,7 +75,8 @@ public class ProductServiceCatalogService {
     }
 
     /** 将当前商家的草稿或下架目录设为上架。 */
-    public ProductService publish(Long id) {
+    public ProductService publish(Long operatorUserId, Long id) {
+        requireCatalogPermission(operatorUserId);
         ProductService productService = findCurrentMerchantProductService(id);
         if (ON_SALE_STATUS.equals(productService.getStatus())) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "商品或服务已经上架");
@@ -78,7 +87,8 @@ public class ProductServiceCatalogService {
     }
 
     /** 将当前商家的上架目录设为下架。 */
-    public ProductService unpublish(Long id) {
+    public ProductService unpublish(Long operatorUserId, Long id) {
+        requireCatalogPermission(operatorUserId);
         ProductService productService = findCurrentMerchantProductService(id);
         if (!ON_SALE_STATUS.equals(productService.getStatus())) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "只有上架状态的商品或服务可以下架");
@@ -97,6 +107,11 @@ public class ProductServiceCatalogService {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }
         return productService;
+    }
+
+    /** 校验操作者在当前商家拥有目录管理权限。 */
+    private void requireCatalogPermission(Long operatorUserId) {
+        permissionResolver.requirePermission(operatorUserId, CATALOG_MANAGE_PERMISSION);
     }
 
     /** 校验目录类型属于通用商品或服务。 */

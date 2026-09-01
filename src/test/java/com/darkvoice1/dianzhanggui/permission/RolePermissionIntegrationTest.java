@@ -56,15 +56,15 @@ class RolePermissionIntegrationTest {
     @Test
     void shouldInitializeFixedRolesAndPersistPermissionRelations() {
         assertEquals(3, roleMapper.selectList(null).size());
-        assertEquals(2, permissionMapper.selectList(null).size());
-        assertEquals(3, rolePermissionMapper.selectList(null).size());
+        assertEquals(3, permissionMapper.selectList(null).size());
+        assertEquals(5, rolePermissionMapper.selectList(null).size());
 
         Role owner = findRole("OWNER");
         assertEquals("老板", owner.getName());
         assertEquals("员工", findRole("EMPLOYEE").getName());
         assertEquals("顾客", findRole("MEMBER").getName());
         assertEquals("MERCHANT_MEMBER_MANAGE", findPermission("MERCHANT_MEMBER_MANAGE").getCode());
-        assertEquals(2, permissionsOf(owner).size());
+        assertEquals(3, permissionsOf(owner).size());
 
         Permission merchantManage = new Permission();
         merchantManage.setCode("MERCHANT_MANAGE");
@@ -79,7 +79,7 @@ class RolePermissionIntegrationTest {
 
         Role savedRole = findRole("OWNER");
         Permission savedPermission = findPermission("MERCHANT_MANAGE");
-        assertEquals(3, permissionsOf(savedRole).size());
+        assertEquals(4, permissionsOf(savedRole).size());
         assertEquals(merchantManage.getId(), savedPermission.getId());
         assertEquals(owner.getId(), savedRole.getId());
     }

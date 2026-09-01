@@ -7,6 +7,8 @@ import com.darkvoice1.dianzhanggui.catalog.service.ProductServiceCatalogService;
 import com.darkvoice1.dianzhanggui.common.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,32 +33,42 @@ public class ProductServiceController {
 
     /** 在当前商家创建商品或服务。 */
     @PostMapping
-    public ApiResponse<ProductService> create(@Valid @RequestBody CreateProductServiceRequest request) {
-        return ApiResponse.success(productServiceCatalogService.create(request));
+    public ApiResponse<ProductService> create(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody CreateProductServiceRequest request) {
+        return ApiResponse.success(productServiceCatalogService.create(currentUserId(jwt), request));
     }
 
     /** 查询当前商家的商品或服务详情。 */
     @GetMapping("/{id}")
-    public ApiResponse<ProductService> findById(@PathVariable @Positive(message = "id 必须是正整数") Long id) {
-        return ApiResponse.success(productServiceCatalogService.findById(id));
+    public ApiResponse<ProductService> findById(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable @Positive(message = "id 必须是正整数") Long id) {
+        return ApiResponse.success(productServiceCatalogService.findById(currentUserId(jwt), id));
     }
 
     /** 编辑当前商家的商品或服务。 */
     @PatchMapping("/{id}")
-    public ApiResponse<ProductService> update(@PathVariable @Positive(message = "id 必须是正整数") Long id,
+    public ApiResponse<ProductService> update(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable @Positive(message = "id 必须是正整数") Long id,
             @Valid @RequestBody UpdateProductServiceRequest request) {
-        return ApiResponse.success(productServiceCatalogService.update(id, request));
+        return ApiResponse.success(productServiceCatalogService.update(currentUserId(jwt), id, request));
     }
 
     /** 将当前商家的商品或服务上架。 */
     @PostMapping("/{id}/publish")
-    public ApiResponse<ProductService> publish(@PathVariable @Positive(message = "id 必须是正整数") Long id) {
-        return ApiResponse.success(productServiceCatalogService.publish(id));
+    public ApiResponse<ProductService> publish(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable @Positive(message = "id 必须是正整数") Long id) {
+        return ApiResponse.success(productServiceCatalogService.publish(currentUserId(jwt), id));
     }
 
     /** 将当前商家的商品或服务下架。 */
     @PostMapping("/{id}/unpublish")
-    public ApiResponse<ProductService> unpublish(@PathVariable @Positive(message = "id 必须是正整数") Long id) {
-        return ApiResponse.success(productServiceCatalogService.unpublish(id));
+    public ApiResponse<ProductService> unpublish(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable @Positive(message = "id 必须是正整数") Long id) {
+        return ApiResponse.success(productServiceCatalogService.unpublish(currentUserId(jwt), id));
+    }
+
+    /** 从已验证的 JWT 中读取当前操作者 ID。 */
+    private Long currentUserId(Jwt jwt) {
+        return Long.valueOf(jwt.getSubject());
     }
 }
