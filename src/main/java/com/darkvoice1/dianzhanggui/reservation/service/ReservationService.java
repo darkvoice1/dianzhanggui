@@ -14,6 +14,7 @@ import com.darkvoice1.dianzhanggui.reservation.mapper.ReservationMapper;
 import com.darkvoice1.dianzhanggui.reservation.model.CreateReservationRequest;
 import com.darkvoice1.dianzhanggui.reservation.model.Reservation;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -24,6 +25,7 @@ public class ReservationService {
     private static final String ON_SALE_STATUS = "ON_SALE";
     private static final String AVAILABILITY_OPEN_STATUS = "OPEN";
     private static final String RESERVATION_STATUS = "RESERVED";
+    private static final String CANCELLED_STATUS = "CANCELLED";
     private static final String CUSTOMER_ACTIVE_STATUS = "ACTIVE";
 
     private final ProductAvailabilityMapper productAvailabilityMapper;
@@ -60,6 +62,39 @@ public class ReservationService {
         reservation.setCustomerProfileId(customer.getId());
         reservation.setStatus(RESERVATION_STATUS);
         reservationMapper.insert(reservation);
+        return reservation;
+    }
+
+    /** 取消当前登录用户在当前商家创建的预约。 */
+    @Transactional
+    public Reservation cancel(Long userId, Long reservationId) {
+        Long merchantId = TenantContext.requireMerchantId();
+        CustomerProfile customer = customerProfileMapper.selectOne(new LambdaQueryWrapper<CustomerProfile>()
+                .eq(CustomerProfile::getMerchantId, merchantId)
+                .eq(CustomerProfile::getUserId, userId));
+        if (customer == null) {
+            throw new BusinessException(ErrorCode.RESERVATION_NOT_FOUND);
+        }
+
+        Reservation reservation = reservationMapper.selectOne(new LambdaQueryWrapper<Reservation>()
+                .eq(Reservation::getId, reservationId)
+                .eq(Reservation::getMerchantId, merchantId)
+                .eq(Reservation::getCustomerProfileId, customer.getId()));
+        if (reservation == null) {
+            throw new BusinessException(ErrorCode.RESERVATION_NOT_FOUND);
+        }
+        if (!RESERVATION_STATUS.equals(reservation.getStatus())) {
+            throw new BusinessException(ErrorCode.RESERVATION_CANCELLATION_NOT_ALLOWED);
+        }
+
+        ProductAvailability availability = findAvailability(merchantId, reservation.getProductAvailabilityId());
+        if (!availability.getStartAt().isAfter(LocalDateTime.now())) {
+            throw new BusinessException(ErrorCode.RESERVATION_CANCELLATION_NOT_ALLOWED);
+        }
+
+        reservation.setStatus(CANCELLED_STATUS);
+        reservation.setCancelledAt(LocalDateTime.now());
+        reservationMapper.updateById(reservation);
         return reservation;
     }
 

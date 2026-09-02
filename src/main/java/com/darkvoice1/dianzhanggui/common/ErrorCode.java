@@ -57,6 +57,12 @@ public enum ErrorCode {
     /** 商品可用性当前不满足预约条件。 */
     PRODUCT_AVAILABILITY_NOT_BOOKABLE("PRODUCT_AVAILABILITY_NOT_BOOKABLE", "当前商品暂不可预约"),
 
+    /** 请求的预约记录不存在或不属于当前用户。 */
+    RESERVATION_NOT_FOUND("RESERVATION_NOT_FOUND", "预约记录不存在"),
+
+    /** 当前预约不满足取消条件。 */
+    RESERVATION_CANCELLATION_NOT_ALLOWED("RESERVATION_CANCELLATION_NOT_ALLOWED", "当前预约不允许取消"),
+
     /** 租户业务请求缺少当前商家。 */
     TENANT_REQUIRED("TENANT_REQUIRED", "请先选择当前商家"),
 

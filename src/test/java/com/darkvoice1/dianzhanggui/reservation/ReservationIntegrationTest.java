@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -74,7 +75,7 @@ class ReservationIntegrationTest {
         Long productId = createAndPublishProduct(ownerToken, merchantId);
         ProductAvailability availability = createAvailability(merchantId, productId);
 
-        mockMvc.perform(post("/api/reservations")
+        MvcResult reservationResult = mockMvc.perform(post("/api/reservations")
                         .header("Authorization", "Bearer " + customerToken)
                         .header("X-Merchant-Id", merchantId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -82,7 +83,24 @@ class ReservationIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.status").value("RESERVED"))
-                .andExpect(jsonPath("$.data.merchantId").value(merchantId));
+                .andExpect(jsonPath("$.data.merchantId").value(merchantId))
+                .andReturn();
+
+        Long reservationId = objectMapper.readTree(reservationResult.getResponse().getContentAsString())
+                .path("data").path("id").asLong();
+        mockMvc.perform(delete("/api/reservations/{id}", reservationId)
+                        .header("Authorization", "Bearer " + customerToken)
+                        .header("X-Merchant-Id", merchantId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.data.cancelledAt").isNotEmpty());
+
+        mockMvc.perform(delete("/api/reservations/{id}", reservationId)
+                        .header("Authorization", "Bearer " + customerToken)
+                        .header("X-Merchant-Id", merchantId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("RESERVATION_CANCELLATION_NOT_ALLOWED"));
     }
 
     /** 验证没有有效客户档案的登录用户不能创建预约。 */
