@@ -18,6 +18,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -80,6 +81,25 @@ class CatalogIntegrationTest {
                         .header("X-Merchant-Id", merchantId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("OFF_SALE"));
+    }
+
+    /** 验证老板可以编辑商品基础资料和价格。 */
+    @Test
+    void shouldUpdateProductDetailsAndPrices() throws Exception {
+        String ownerToken = registerAndGetAccessToken("catalog-update-owner-" + UUID.randomUUID() + "@example.com");
+        Long merchantId = createMerchantAndGetId(ownerToken);
+        Long productId = createProductAndGetId(ownerToken, merchantId, "PRODUCT", "100.00", "80.00");
+
+        mockMvc.perform(patch("/api/product-services/{id}", productId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(productJson("新版服务", "SERVICE", "300.00", "260.00")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("新版服务"))
+                .andExpect(jsonPath("$.data.type").value("SERVICE"))
+                .andExpect(jsonPath("$.data.originalPrice").value(300.00))
+                .andExpect(jsonPath("$.data.sellingPrice").value(260.00));
     }
 
     /** 验证商品目录分页筛选、分页上限和跨商家列表隔离。 */
