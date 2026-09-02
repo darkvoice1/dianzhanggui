@@ -48,6 +48,15 @@ public enum ErrorCode {
     /** 当前档案已经是停用状态。 */
     PROFILE_ALREADY_INACTIVE("PROFILE_ALREADY_INACTIVE", "档案已经停用"),
 
+    /** 当前用户在商家下没有可用的客户档案。 */
+    RESERVATION_CUSTOMER_REQUIRED("RESERVATION_CUSTOMER_REQUIRED", "请先完善有效的客户档案"),
+
+    /** 请求的商品可用性记录不存在。 */
+    PRODUCT_AVAILABILITY_NOT_FOUND("PRODUCT_AVAILABILITY_NOT_FOUND", "商品可用性记录不存在"),
+
+    /** 商品可用性当前不满足预约条件。 */
+    PRODUCT_AVAILABILITY_NOT_BOOKABLE("PRODUCT_AVAILABILITY_NOT_BOOKABLE", "当前商品暂不可预约"),
+
     /** 租户业务请求缺少当前商家。 */
     TENANT_REQUIRED("TENANT_REQUIRED", "请先选择当前商家"),
 
