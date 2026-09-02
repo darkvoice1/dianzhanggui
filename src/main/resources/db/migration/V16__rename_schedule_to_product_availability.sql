@@ -1,0 +1,11 @@
+ALTER TABLE service_schedule RENAME TO product_availability;
+
+ALTER TABLE product_availability RENAME CONSTRAINT ck_service_schedule_time TO ck_product_availability_time;
+ALTER TABLE product_availability RENAME CONSTRAINT ck_service_schedule_capacity TO ck_product_availability_capacity;
+ALTER TABLE product_availability RENAME CONSTRAINT ck_service_schedule_status TO ck_product_availability_status;
+
+ALTER INDEX idx_service_schedule_merchant_status_start RENAME TO idx_product_availability_merchant_status_start;
+ALTER INDEX idx_service_schedule_merchant_product RENAME TO idx_product_availability_merchant_product;
+
+ALTER TABLE reservation RENAME COLUMN service_schedule_id TO product_availability_id;
+ALTER INDEX idx_reservation_merchant_schedule RENAME TO idx_reservation_merchant_availability;
