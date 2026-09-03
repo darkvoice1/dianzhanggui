@@ -10,7 +10,9 @@ import org.apache.ibatis.annotations.Update;
 @Mapper
 public interface ProductAvailabilityMapper extends BaseMapper<ProductAvailability> {
 
-    /** 在剩余数量大于零时原子扣减当前商家的商品可用性数量。 */
+    /**
+     * 使用条件更新原子扣减数量；PostgreSQL 会协调同一行的并发更新，剩余数量是最终防超卖条件。
+     */
     @Update("""
             UPDATE product_availability
             SET remaining_capacity = remaining_capacity - 1,
@@ -22,7 +24,9 @@ public interface ProductAvailabilityMapper extends BaseMapper<ProductAvailabilit
     int decreaseRemainingCapacityIfAvailable(@Param("merchantId") Long merchantId,
             @Param("availabilityId") Long availabilityId);
 
-    /** 在剩余数量未达到总数量时原子回补当前商家的商品可用性数量。 */
+    /**
+     * 使用条件更新原子回补数量；避免并发取消或异常数据使剩余数量超过总数量。
+     */
     @Update("""
             UPDATE product_availability
             SET remaining_capacity = remaining_capacity + 1,
