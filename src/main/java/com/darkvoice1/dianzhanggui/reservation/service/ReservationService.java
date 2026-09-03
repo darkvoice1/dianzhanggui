@@ -42,7 +42,8 @@ public class ReservationService {
         this.reservationMapper = reservationMapper;
     }
 
-    /** 为当前登录用户创建预约，客户和商家均从已验证上下文中确定。 */
+    /** 为当前登录用户创建预约，并在同一事务中扣减商品可预约数量。 */
+    @Transactional
     public Reservation create(Long userId, CreateReservationRequest request) {
         Long merchantId = TenantContext.requireMerchantId();
         ProductAvailability availability = findAvailability(merchantId, request.productAvailabilityId());
@@ -61,7 +62,12 @@ public class ReservationService {
         reservation.setProductAvailabilityId(availability.getId());
         reservation.setCustomerProfileId(customer.getId());
         reservation.setStatus(RESERVATION_STATUS);
-        reservationMapper.insert(reservation);
+        if (reservationMapper.insertReservedIfAbsent(reservation) == 0) {
+            throw new BusinessException(ErrorCode.RESERVATION_ALREADY_EXISTS);
+        }
+        if (productAvailabilityMapper.decreaseRemainingCapacityIfAvailable(merchantId, availability.getId()) == 0) {
+            throw new BusinessException(ErrorCode.PRODUCT_AVAILABILITY_SOLD_OUT);
+        }
         return reservation;
     }
 
@@ -110,7 +116,7 @@ public class ReservationService {
         return availability;
     }
 
-    /** 校验商品上架状态、可用性状态、开始时间和剩余数量。 */
+    /** 校验商品上架状态、可用性状态和开始时间。 */
     private void validateAvailability(Long merchantId, ProductAvailability availability) {
         Product product = productMapper.selectOne(new LambdaQueryWrapper<Product>()
                 .eq(Product::getId, availability.getProductId())
@@ -120,8 +126,7 @@ public class ReservationService {
         }
         if (!ON_SALE_STATUS.equals(product.getStatus())
                 || !AVAILABILITY_OPEN_STATUS.equals(availability.getStatus())
-                || !availability.getStartAt().isAfter(LocalDateTime.now())
-                || availability.getRemainingCapacity() <= 0) {
+                || !availability.getStartAt().isAfter(LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.PRODUCT_AVAILABILITY_NOT_BOOKABLE);
         }
     }

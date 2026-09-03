@@ -57,6 +57,12 @@ public enum ErrorCode {
     /** 商品可用性当前不满足预约条件。 */
     PRODUCT_AVAILABILITY_NOT_BOOKABLE("PRODUCT_AVAILABILITY_NOT_BOOKABLE", "当前商品暂不可预约"),
 
+    /** 当前商品可用性已经没有可预约数量。 */
+    PRODUCT_AVAILABILITY_SOLD_OUT("PRODUCT_AVAILABILITY_SOLD_OUT", "当前商品可预约数量已用完"),
+
+    /** 当前客户已经存在同一商品可用性的有效预约。 */
+    RESERVATION_ALREADY_EXISTS("RESERVATION_ALREADY_EXISTS", "请勿重复预约当前商品"),
+
     /** 请求的预约记录不存在或不属于当前用户。 */
     RESERVATION_NOT_FOUND("RESERVATION_NOT_FOUND", "预约记录不存在"),
 

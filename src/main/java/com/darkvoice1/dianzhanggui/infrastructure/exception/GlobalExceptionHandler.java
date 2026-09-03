@@ -61,7 +61,8 @@ public class GlobalExceptionHandler {
             case LOGIN_FAILED, UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
             case USER_ALREADY_EXISTS, MERCHANT_MEMBER_ALREADY_EXISTS,
                     CUSTOMER_PROFILE_ALREADY_EXISTS, STAFF_PROFILE_ALREADY_EXISTS,
-                    PROFILE_ALREADY_INACTIVE -> HttpStatus.CONFLICT;
+                    PROFILE_ALREADY_INACTIVE, PRODUCT_AVAILABILITY_SOLD_OUT,
+                    RESERVATION_ALREADY_EXISTS -> HttpStatus.CONFLICT;
             case MERCHANT_ACCESS_DENIED, PERMISSION_DENIED -> HttpStatus.FORBIDDEN;
             default -> HttpStatus.BAD_REQUEST;
         };
