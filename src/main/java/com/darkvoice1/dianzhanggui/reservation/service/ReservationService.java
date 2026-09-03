@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
-/** 提供通用商品可用性预约的创建能力。 */
+/** 提供通用商品可用性预约的创建与取消能力。 */
 @Service
 public class ReservationService {
 
@@ -98,9 +98,19 @@ public class ReservationService {
             throw new BusinessException(ErrorCode.RESERVATION_CANCELLATION_NOT_ALLOWED);
         }
 
+        LocalDateTime cancelledAt = LocalDateTime.now();
+        int cancelledRows = reservationMapper.cancelIfReserved(
+                merchantId, customer.getId(), reservationId, cancelledAt);
+        if (cancelledRows == 0) {
+            throw new BusinessException(ErrorCode.RESERVATION_CANCELLATION_NOT_ALLOWED);
+        }
+        int recoveredRows = productAvailabilityMapper.increaseRemainingCapacityIfRecoverable(
+                merchantId, availability.getId());
+        if (recoveredRows == 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "商品可预约数量回补失败");
+        }
         reservation.setStatus(CANCELLED_STATUS);
-        reservation.setCancelledAt(LocalDateTime.now());
-        reservationMapper.updateById(reservation);
+        reservation.setCancelledAt(cancelledAt);
         return reservation;
     }
 
