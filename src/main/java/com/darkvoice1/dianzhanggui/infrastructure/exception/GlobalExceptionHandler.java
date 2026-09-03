@@ -57,7 +57,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
         ErrorCode errorCode = exception.getErrorCode();
         HttpStatus status = switch (errorCode) {
-            case RESOURCE_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case RESOURCE_NOT_FOUND, PRODUCT_AVAILABILITY_NOT_FOUND, RESERVATION_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case LOGIN_FAILED, UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
             case USER_ALREADY_EXISTS, MERCHANT_MEMBER_ALREADY_EXISTS,
                     CUSTOMER_PROFILE_ALREADY_EXISTS, STAFF_PROFILE_ALREADY_EXISTS,
