@@ -23,12 +23,13 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** 验证通用商品可用性预约的创建和客户资格校验。 */
+/** 验证通用商品可用性预约的创建、取消、数量维护和客户资格校验。 */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
@@ -85,6 +86,7 @@ class ReservationIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("RESERVED"))
                 .andExpect(jsonPath("$.data.merchantId").value(merchantId))
                 .andReturn();
+        assertRemainingCapacity(availability.getId(), 9);
 
         Long reservationId = objectMapper.readTree(reservationResult.getResponse().getContentAsString())
                 .path("data").path("id").asLong();
@@ -95,12 +97,72 @@ class ReservationIntegrationTest {
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.status").value("CANCELLED"))
                 .andExpect(jsonPath("$.data.cancelledAt").isNotEmpty());
+        assertRemainingCapacity(availability.getId(), 10);
 
         mockMvc.perform(delete("/api/reservations/{id}", reservationId)
                         .header("Authorization", "Bearer " + customerToken)
                         .header("X-Merchant-Id", merchantId))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("RESERVATION_CANCELLATION_NOT_ALLOWED"));
+        assertRemainingCapacity(availability.getId(), 10);
+
+        createReservation(customerToken, merchantId, availability.getId());
+        assertRemainingCapacity(availability.getId(), 9);
+    }
+
+    /** 验证重复预约被拒绝且不会重复扣减商品可预约数量。 */
+    @Test
+    void shouldRejectDuplicateReservationWithoutDecreasingCapacity() throws Exception {
+        String ownerToken = registerAndGetAccessToken("duplicate-owner-" + UUID.randomUUID() + "@example.com");
+        String customerEmail = "duplicate-customer-" + UUID.randomUUID() + "@example.com";
+        String customerToken = registerAndGetAccessToken(customerEmail);
+        Long merchantId = createMerchantAndGetId(ownerToken);
+        Long customerUserId = findUserId(customerEmail);
+        joinMerchant(customerToken, merchantId);
+        createCustomerProfile(ownerToken, merchantId, customerUserId);
+        Long productId = createAndPublishProduct(ownerToken, merchantId);
+        ProductAvailability availability = createAvailability(merchantId, productId);
+
+        createReservation(customerToken, merchantId, availability.getId());
+        assertRemainingCapacity(availability.getId(), 9);
+
+        mockMvc.perform(post("/api/reservations")
+                        .header("Authorization", "Bearer " + customerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"productAvailabilityId\":" + availability.getId() + "}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("RESERVATION_ALREADY_EXISTS"));
+        assertRemainingCapacity(availability.getId(), 9);
+    }
+
+    /** 验证商品可预约数量耗尽后，其他客户不能继续创建预约。 */
+    @Test
+    void shouldRejectReservationWhenCapacityIsSoldOut() throws Exception {
+        String ownerToken = registerAndGetAccessToken("sold-out-owner-" + UUID.randomUUID() + "@example.com");
+        String firstCustomerEmail = "sold-out-first-" + UUID.randomUUID() + "@example.com";
+        String secondCustomerEmail = "sold-out-second-" + UUID.randomUUID() + "@example.com";
+        String firstCustomerToken = registerAndGetAccessToken(firstCustomerEmail);
+        String secondCustomerToken = registerAndGetAccessToken(secondCustomerEmail);
+        Long merchantId = createMerchantAndGetId(ownerToken);
+        joinMerchant(firstCustomerToken, merchantId);
+        joinMerchant(secondCustomerToken, merchantId);
+        createCustomerProfile(ownerToken, merchantId, findUserId(firstCustomerEmail), "13800000001");
+        createCustomerProfile(ownerToken, merchantId, findUserId(secondCustomerEmail), "13800000002");
+        Long productId = createAndPublishProduct(ownerToken, merchantId);
+        ProductAvailability availability = createAvailability(merchantId, productId, 1);
+
+        createReservation(firstCustomerToken, merchantId, availability.getId());
+        assertRemainingCapacity(availability.getId(), 0);
+
+        mockMvc.perform(post("/api/reservations")
+                        .header("Authorization", "Bearer " + secondCustomerToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"productAvailabilityId\":" + availability.getId() + "}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_AVAILABILITY_SOLD_OUT"));
+        assertRemainingCapacity(availability.getId(), 0);
     }
 
     /** 验证没有有效客户档案的登录用户不能创建预约。 */
@@ -143,11 +205,16 @@ class ReservationIntegrationTest {
 
     /** 创建关联用户的客户档案。 */
     private void createCustomerProfile(String accessToken, Long merchantId, Long userId) throws Exception {
+        createCustomerProfile(accessToken, merchantId, userId, "13800000000");
+    }
+
+    /** 使用指定手机号创建关联用户的客户档案。 */
+    private void createCustomerProfile(String accessToken, Long merchantId, Long userId, String phone) throws Exception {
         mockMvc.perform(post("/api/customer-profiles")
                         .header("Authorization", "Bearer " + accessToken)
                         .header("X-Merchant-Id", merchantId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"预约客户\",\"phone\":\"13800000000\",\"userId\":" + userId + "}"))
+                        .content("{\"name\":\"预约客户\",\"phone\":\"" + phone + "\",\"userId\":" + userId + "}"))
                 .andExpect(status().isOk());
     }
 
@@ -171,16 +238,38 @@ class ReservationIntegrationTest {
 
     /** 直接准备测试用的未来商品可用性记录。 */
     private ProductAvailability createAvailability(Long merchantId, Long productId) {
+        return createAvailability(merchantId, productId, 10);
+    }
+
+    /** 直接准备测试用的指定数量未来商品可用性记录。 */
+    private ProductAvailability createAvailability(Long merchantId, Long productId, int capacity) {
         ProductAvailability availability = new ProductAvailability();
         availability.setMerchantId(merchantId);
         availability.setProductId(productId);
         availability.setStartAt(LocalDateTime.now().plusDays(1));
         availability.setEndAt(LocalDateTime.now().plusDays(1).plusHours(1));
-        availability.setCapacity(10);
-        availability.setRemainingCapacity(10);
+        availability.setCapacity(capacity);
+        availability.setRemainingCapacity(capacity);
         availability.setStatus("OPEN");
         productAvailabilityMapper.insert(availability);
         return availability;
+    }
+
+    /** 为当前客户创建预约并返回接口响应。 */
+    private MvcResult createReservation(String accessToken, Long merchantId, Long availabilityId) throws Exception {
+        return mockMvc.perform(post("/api/reservations")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Merchant-Id", merchantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"productAvailabilityId\":" + availabilityId + "}"))
+                .andExpect(status().isOk())
+                .andReturn();
+    }
+
+    /** 断言指定商品可用性的剩余数量符合预期。 */
+    private void assertRemainingCapacity(Long availabilityId, int expectedCapacity) {
+        ProductAvailability availability = productAvailabilityMapper.selectById(availabilityId);
+        assertEquals(expectedCapacity, availability.getRemainingCapacity());
     }
 
     /** 注册测试用户并取得访问令牌。 */
